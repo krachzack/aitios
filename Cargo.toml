@@ -6,3 +6,4 @@ authors = ["PhilippStadler"]
 [dependencies]
 cgmath = "0.15.0"
 tobj = "0.1.6"
+rand = "0.3.18"

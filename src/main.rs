@@ -1,5 +1,6 @@
 extern crate tobj;
 extern crate cgmath;
+extern crate rand;
 
 mod sim;
 

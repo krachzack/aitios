@@ -1,6 +1,7 @@
 
 use std::io;
 use ::cgmath::Vector3;
+use ::rand;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
@@ -20,27 +21,19 @@ impl Surface {
                                 )
                                );
 
-        // Calculate the center point of each triangle to use as a surfel
-        // let surface_points = triangles.map(|(v0, v1, v2)| (v0 + v1 + v2) / 3.0);
-
-        // Try some baricentric coordinates so we have around 10 samples on the triangle
-        // The spacing will probably be quite uneven
         let surface_points = triangles.fold(
             Vec::<Vector3<f32>>::new(),
             |mut acc, (v0, v1, v2)| {
-                let mut bari0 = 0.0;
-                let mut bari1 = 0.0;
-                let step_size = 0.05;
+                let surfel_count_per_tri = 50;
 
-                while bari0 < 0.5 {
-                    while bari1 < 0.5 {
-                        let bari2 = 1.0 - bari0 - bari1;
-                        acc.push(bari0 * v0 + bari1 * v1 + bari2 * v2);
-
-                        bari1 += step_size;
-                    }
-
-                    bari0 += step_size;
+                for _ in 0..surfel_count_per_tri {
+                    let u = rand::random::<f32>();
+                    let v = rand::random::<f32>();
+                    let random_point = (1.0 - u.sqrt()) * v0 +
+                                       (u.sqrt() * (1.0 - v)) * v1 +
+                                       (u.sqrt() * v) * v2;
+                    
+                    acc.push(random_point);
                 }
 
                 acc
