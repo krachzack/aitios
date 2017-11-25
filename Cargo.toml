@@ -1,0 +1,8 @@
+[package]
+name = "aitios"
+version = "0.1.0"
+authors = ["PhilippStadler"]
+
+[dependencies]
+cgmath = "0.15.0"
+tobj = "0.1.6"
