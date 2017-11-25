@@ -1,5 +1,6 @@
 
 use std::io;
+use ::cgmath::prelude::*;
 use ::cgmath::Vector3;
 use ::rand;
 
@@ -24,9 +25,10 @@ impl Surface {
         let surface_points = triangles.fold(
             Vec::<Vector3<f32>>::new(),
             |mut acc, (v0, v1, v2)| {
-                let surfel_count_per_tri = 50;
+                let surfels_per_sqr_unit = 10000.0;
+                let surfel_count = (surfels_per_sqr_unit * area(v0, v1, v2)).ceil() as i32;
 
-                for _ in 0..surfel_count_per_tri {
+                for _ in 0..surfel_count {
                     let u = rand::random::<f32>();
                     let v = rand::random::<f32>();
                     let random_point = (1.0 - u.sqrt()) * v0 +
@@ -85,4 +87,18 @@ impl Surface {
 
         Ok(written)
     }
+}
+
+/// Calculates the area of the triangle specified with the three vertices
+/// using Heron's formula
+fn area(p0: Vector3<f32>, p1: Vector3<f32>, p2: Vector3<f32>) -> f32 {
+    // calculate sidelength
+    let a = (p0 - p1).magnitude();
+    let b = (p1 - p2).magnitude();
+    let c = (p2 - p0).magnitude();
+
+    // s is halved circumference
+    let s = (a + b + c) / 2.0;
+
+    (s * (s - a) * (s - b) * (s - c)).sqrt()
 }
