@@ -1,8 +1,8 @@
 
 use std::io;
-use ::cgmath::prelude::*;
 use ::cgmath::Vector3;
 use ::rand;
+use ::geom::area;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
@@ -49,7 +49,7 @@ impl Surface {
     where
         S : IntoIterator<Item = Surface>
     {
-        let mut merged_points = Vec::<Vector3<f32>>::new();
+        let mut merged_points = Vec::new();
 
         for surf in surfaces {
             merged_points.extend(surf.points);
@@ -87,18 +87,4 @@ impl Surface {
 
         Ok(written)
     }
-}
-
-/// Calculates the area of the triangle specified with the three vertices
-/// using Heron's formula
-fn area(p0: Vector3<f32>, p1: Vector3<f32>, p2: Vector3<f32>) -> f32 {
-    // calculate sidelength
-    let a = (p0 - p1).magnitude();
-    let b = (p1 - p2).magnitude();
-    let c = (p2 - p0).magnitude();
-
-    // s is halved circumference
-    let s = (a + b + c) / 2.0;
-
-    (s * (s - a) * (s - b) * (s - c)).sqrt()
 }

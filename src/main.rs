@@ -2,6 +2,7 @@ extern crate tobj;
 extern crate cgmath;
 extern crate rand;
 
+mod geom;
 mod sim;
 
 fn main() {
