@@ -1,3 +1,6 @@
+///
+/// Contains functions for triangles
+///
 
 use ::cgmath::Vector3;
 use ::cgmath::prelude::*;

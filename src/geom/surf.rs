@@ -2,7 +2,7 @@
 use std::io;
 use ::cgmath::Vector3;
 use ::rand;
-use ::geom::area;
+use ::geom::tri::area;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {

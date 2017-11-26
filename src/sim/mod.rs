@@ -1,6 +1,4 @@
-mod surf;
-
-use self::surf::Surface;
+use ::geom::surf::Surface;
 use ::tobj;
 use std::fs;
 use std::path::Path;
