@@ -20,6 +20,7 @@ pub fn area(p0: Vector3<f32>, p1: Vector3<f32>, p2: Vector3<f32>) -> f32 {
 }
 
 /// Implements the [Möller–Trumbore intersection algorithm](https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm)
+/// for ray-triangle intersection. Note that this only intersects the front and not the back of the triangle
 pub fn intersect_ray_with_tri(ray_origin: &Vector3<f32>,
                               ray_direction: &Vector3<f32>,
                               vertex0: &Vector3<f32>,
