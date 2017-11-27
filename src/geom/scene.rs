@@ -1,6 +1,9 @@
 
-use ::tobj;
 use std::path::Path;
+use ::tobj;
+use ::geom::tri;
+use ::cgmath::Vector3;
+use ::cgmath::prelude::*;
 
 pub struct Scene {
     pub indices: Vec<u32>,
@@ -30,6 +33,45 @@ impl Scene {
                     scene.texcoords.extend(texcoords);
 
                     scene
+                }
+            )
+    }
+
+    /// Finds the nearest intersection of the given ray with the scene
+    pub fn intersect_all(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Vec<Vector3<f32>> {
+        self.indices.chunks(3)
+            .map(
+                |i| (
+                    Vector3::new(self.positions[(3*i[0]+0) as usize], self.positions[(3*i[0]+1) as usize], self.positions[(3*i[0]+2) as usize]),
+                    Vector3::new(self.positions[(3*i[1]+0) as usize], self.positions[(3*i[1]+1) as usize], self.positions[(3*i[1]+2) as usize]),
+                    Vector3::new(self.positions[(3*i[2]+0) as usize], self.positions[(3*i[2]+1) as usize], self.positions[(3*i[2]+2) as usize])
+                )
+            ).filter_map(
+                |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
+            ).collect()
+    }
+
+    /// Finds the nearest intersection of the given ray with the scene
+    pub fn intersect(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Option<Vector3<f32>> {
+        self.indices.chunks(3)
+            .map(
+                |i| (
+                    Vector3::new(self.positions[(3*i[0]+0) as usize], self.positions[(3*i[0]+1) as usize], self.positions[(3*i[0]+2) as usize]),
+                    Vector3::new(self.positions[(3*i[1]+0) as usize], self.positions[(3*i[1]+1) as usize], self.positions[(3*i[1]+2) as usize]),
+                    Vector3::new(self.positions[(3*i[2]+0) as usize], self.positions[(3*i[2]+1) as usize], self.positions[(3*i[2]+2) as usize])
+                )
+            ).filter_map(
+                |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
+            ).fold(
+                None,
+                |best_hit, hit| {
+                    match best_hit {
+                        None => Some(hit),
+                        Some(best_hit) => {
+                            if ray_origin.distance2(hit) < ray_origin.distance2(best_hit) { Some(hit) }
+                            else { Some(best_hit) }
+                        }
+                    }
                 }
             )
     }
