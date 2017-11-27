@@ -25,7 +25,7 @@ impl Surface {
         let surface_points = triangles.fold(
             Vec::<Vector3<f32>>::new(),
             |mut acc, (v0, v1, v2)| {
-                let surfels_per_sqr_unit = 10000.0;
+                let surfels_per_sqr_unit = 1000.0;
                 let surfel_count = (surfels_per_sqr_unit * area(v0, v1, v2)).ceil() as i32;
 
                 for _ in 0..surfel_count {
@@ -43,6 +43,13 @@ impl Surface {
         );
 
         Surface { points: surface_points }
+    }
+
+    pub fn from_points<P>(point_iter: P) -> Surface
+    where
+        P : IntoIterator<Item = Vector3<f32>> {
+
+        Surface { points: point_iter.into_iter().collect() }
     }
 
     pub fn merge<S>(surfaces: S) -> Surface
