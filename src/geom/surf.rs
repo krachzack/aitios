@@ -6,7 +6,7 @@ use ::geom::tri::area;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
-    points: Vec<Vector3<f32>>
+    pub points: Vec<Vector3<f32>>
 }
 
 impl Surface {
@@ -34,7 +34,7 @@ impl Surface {
                     let random_point = (1.0 - u.sqrt()) * v0 +
                                        (u.sqrt() * (1.0 - v)) * v1 +
                                        (u.sqrt() * v) * v2;
-                    
+
                     acc.push(random_point);
                 }
 
