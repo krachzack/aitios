@@ -1,12 +1,14 @@
-use ::geom::surf::Surface;
+mod ton;
+
+use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
-use ::rand;
 use std::fs;
 use std::io::prelude::*;
 use std::io;
 
 use ::cgmath::Vector3;
-use ::cgmath::InnerSpace;
+
+use self::ton::TonSource;
 
 struct Simulation {
     scene: Scene,
@@ -22,14 +24,12 @@ impl Simulation {
 
         print!("Generating surface models from meshes... ");
         io::stdout().flush().unwrap();
-        let surface = Surface::from_triangles(
-            &scene.positions,
-            &scene.indices,
-            1.0, // delta straight
-            0.0, // delta parabolic
-            0.0, // delta flow
-            &vec![0.0] // just one material with an initial value of 0.0 for all surfels
-        );
+        let surface = SurfaceBuilder::new()
+                        .delta_straight(1.0)
+                        .add_surface_from_indexed_triangles(&scene.positions, &scene.indices)
+                        // just one material on the surfels with an initial value of 0.0 for all surfels
+                        .materials(vec![0.0])
+                        .build();
         println!("Ok, {} surfels", surface.samples.len());
 
         let surf_dump_file = format!("{}.surfels.obj", scene_obj_file_path);
@@ -44,22 +44,20 @@ impl Simulation {
         Simulation { scene, surface }
     }
 
-    fn iterate(&self, source_position: Vector3<f32>, particle_count: i32) {
+    fn iterate(&self, source_position: Vector3<f32>, particle_count: u32) {
         print!("Starting simulation iteration with {} particles... ", particle_count);
         io::stdout().flush().unwrap();
 
-        let particle_hits = (0..particle_count).filter_map(
-            |_| {
-                let direction = Vector3::new(
-                    rand::random::<f32>() - 0.5,
-                    rand::random::<f32>() - 0.5,
-                    rand::random::<f32>() - 0.5
-                ).normalize();
+        let mut source = TonSource::new();
+        source.p_straight(1.0)
+            .materials(&vec![1.0])
+            .point_shaped(&source_position);
 
-                self.scene.intersect(&source_position, &direction)
-            }
-        );
-        let hit_surface = Surface::from_points(particle_hits, 0.0, 0.0, 0.0, &vec![]);
+
+        let particle_hits = source.emit(particle_count)
+            .filter_map(|(_, ray_origin, ray_direction)| self.scene.intersect(&ray_origin, &ray_direction));
+
+        let hit_surface = SurfaceBuilder::new().add_surface_from_points(particle_hits).build();
         println!("Ok, {} hits", hit_surface.samples.len());
 
         print!("Writing hits to testdata/hits.obj... ");
