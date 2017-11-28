@@ -22,8 +22,15 @@ impl Simulation {
 
         print!("Generating surface models from meshes... ");
         io::stdout().flush().unwrap();
-        let surface = Surface::from_triangles(&scene.positions, &scene.indices);
-        println!("Ok, {} surfels", surface.points.len());
+        let surface = Surface::from_triangles(
+            &scene.positions,
+            &scene.indices,
+            1.0, // delta straight
+            0.0, // delta parabolic
+            0.0, // delta flow
+            &vec![0.0] // just one material with an initial value of 0.0 for all surfels
+        );
+        println!("Ok, {} surfels", surface.samples.len());
 
         let surf_dump_file = format!("{}.surfels.obj", scene_obj_file_path);
         print!("Writing surface model to {}... ", surf_dump_file);
@@ -52,8 +59,8 @@ impl Simulation {
                 self.scene.intersect(&source_position, &direction)
             }
         );
-        let hit_surface = Surface::from_points(particle_hits);
-        println!("Ok, {} hits", hit_surface.points.len());
+        let hit_surface = Surface::from_points(particle_hits, 0.0, 0.0, 0.0, &vec![]);
+        println!("Ok, {} hits", hit_surface.samples.len());
 
         print!("Writing hits to testdata/hits.obj... ");
         io::stdout().flush().unwrap();
@@ -67,5 +74,5 @@ impl Simulation {
 
 pub fn simulate(scene_obj_file_path: &str) {
     let sim = Simulation::new(scene_obj_file_path);
-    sim.iterate(Vector3::new(0.0, 5.0, 0.05), 25000);
+    sim.iterate(Vector3::new(0.0, 5.0, 0.05), 5000);
 }
