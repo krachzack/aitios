@@ -15,8 +15,10 @@ pub struct Surfel {
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
     delta_straight: f32,
     /// Deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
+    #[allow(dead_code)]
     delta_parabolic: f32,
     /// Deterioration rate of the probability of a gammaton flowing in a tangent direction
+    #[allow(dead_code)]
     delta_flow: f32,
     /// Holds the amount of materials as numbers in the interval 0..1
     materials: Vec<f32>
@@ -27,8 +29,10 @@ pub struct SurfaceBuilder {
     /// Initial deterioration rate of the probability of a gammaton moving further in a straight line
     delta_straight: f32,
     /// Initial deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
+    #[allow(dead_code)]
     delta_parabolic: f32,
     /// Initial deterioration rate of the probability of a gammaton flowing in a tangent direction
+    #[allow(dead_code)]
     delta_flow: f32,
     /// Holds the initial amount of materials as numbers in the interval 0..1
     materials: Vec<f32>
@@ -78,11 +82,13 @@ impl SurfaceBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub fn delta_parabolic(mut self, delta_parabolic: f32) -> SurfaceBuilder {
         self.delta_parabolic = delta_parabolic;
         self
     }
 
+    #[allow(dead_code)]
     pub fn delta_flow(mut self, delta_flow: f32) -> SurfaceBuilder {
         self.delta_flow = delta_flow;
         self

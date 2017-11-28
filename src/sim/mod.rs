@@ -8,15 +8,59 @@ use std::io;
 
 use ::cgmath::Vector3;
 
-use self::ton::{Ton, TonSource, TonSourceBuilder};
+use self::ton::{TonSourceBuilder, TonSource};
 
-struct Simulation {
+pub struct Simulation {
     scene: Scene,
-    surface: Surface
+    surface: Surface,
+    iterations: u32,
+    sources: Vec<TonSource>
+}
+
+pub struct SimulationBuilder {
+    // TODO this should hold SceneBuilder and SurfaceBuilder
+    scene: Scene,
+    surface: Surface,
+    iterations: u32,
+    sources: Vec<TonSource>
 }
 
 impl Simulation {
-    fn new(scene_obj_file_path: &str) -> Simulation {
+    pub fn run(&mut self) {
+        for _ in 0..self.iterations {
+            self.iterate()
+        }
+    }
+
+    fn iterate(&mut self) {
+        let particle_hits = self.sources.iter()
+            .flat_map(|src| src.emit())
+            .filter_map(|(_, ray_origin, ray_direction)| self.scene.intersect(&ray_origin, &ray_direction));
+
+        let hit_surface = SurfaceBuilder::new().add_surface_from_points(particle_hits).build();
+        println!("{} hits", hit_surface.samples.len());
+
+        print!("Writing hits to testdata/hits.obj... ");
+        io::stdout().flush().unwrap();
+        let mut surf_dump_file = fs::File::create("testdata/hits.obj").unwrap();
+        match hit_surface.dump(&mut surf_dump_file) {
+            Ok(_) => println!("Ok"),
+            Err(_) => println!("Failed")
+        }
+    }
+}
+
+impl SimulationBuilder {
+    pub fn new() -> SimulationBuilder {
+        SimulationBuilder {
+            scene: Scene::empty(),
+            surface: Surface { samples: Vec::new() },
+            iterations: 1,
+            sources: Vec::new()
+        }
+    }
+
+    pub fn scene(mut self, scene_obj_file_path: &str) -> SimulationBuilder {
         print!("Loading OBJ at {}... ", scene_obj_file_path);
         io::stdout().flush().unwrap();
         let scene = Scene::load_from_file(scene_obj_file_path);
@@ -41,37 +85,35 @@ impl Simulation {
             Err(_) => println!("Failed")
         }
 
-        Simulation { scene, surface }
+        self.scene = scene;
+        self.surface = surface;
+
+        self
     }
 
-    fn iterate(&self, source_position: Vector3<f32>, particle_count: u32) {
-        print!("Starting simulation iteration with {} particles... ", particle_count);
-        io::stdout().flush().unwrap();
+    pub fn iterations(mut self, iterations: u32) -> SimulationBuilder {
+        self.iterations = iterations;
+        self
+    }
 
-        let source = TonSourceBuilder::new()
-            .p_straight(1.0)
-            .materials(&vec![1.0])
-            .point_shaped(&source_position)
-            .build();
+    pub fn add_point_source(mut self, position: &Vector3<f32>) -> SimulationBuilder {
+        self.sources.push(
+            TonSourceBuilder::new()
+                    .p_straight(1.0)
+                    .materials(&vec![1.0])
+                    .point_shaped(&position)
+                    .emission_count(10000)
+                    .build()
+        );
+        self
+    }
 
-
-        let particle_hits = source.emit(particle_count)
-            .filter_map(|(_, ray_origin, ray_direction)| self.scene.intersect(&ray_origin, &ray_direction));
-
-        let hit_surface = SurfaceBuilder::new().add_surface_from_points(particle_hits).build();
-        println!("Ok, {} hits", hit_surface.samples.len());
-
-        print!("Writing hits to testdata/hits.obj... ");
-        io::stdout().flush().unwrap();
-        let mut surf_dump_file = fs::File::create("testdata/hits.obj").unwrap();
-        match hit_surface.dump(&mut surf_dump_file) {
-            Ok(_) => println!("Ok"),
-            Err(_) => println!("Failed")
+    pub fn build(self) -> Simulation {
+        Simulation {
+            scene: self.scene,
+            surface: self.surface,
+            iterations: self.iterations,
+            sources: self.sources
         }
     }
-}
-
-pub fn simulate(scene_obj_file_path: &str) {
-    let sim = Simulation::new(scene_obj_file_path);
-    sim.iterate(Vector3::new(0.0, 5.0, 0.05), 5000);
 }

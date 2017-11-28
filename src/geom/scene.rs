@@ -13,6 +13,15 @@ pub struct Scene {
 }
 
 impl Scene {
+    pub fn empty() -> Scene {
+        Scene {
+            indices: Vec::new(),
+            positions: Vec::new(),
+            normals: Vec::new(),
+            texcoords: Vec::new()
+        }
+    }
+
     /// Loads the obj file at the given file system path into a newly created scene
     /// All contained models will be merged into a single mesh
     pub fn load_from_file(obj_file_path: &str) -> Scene {
