@@ -21,55 +21,34 @@ enum Shape {
 }
 
 pub struct TonSource {
-    /// Probability of moving further in a straight line
+    /// Emission shape
+    shape: Shape,
+    /// Probability of moving further in a straight line for tons emitted by this source
     p_straight: f32,
-    /// Probability of moving further in a piecewise approximated
+    /// Probability of moving further in a piecewise approximated for tons emitted by this source
     /// parabolic trajectory
     p_parabolic: f32,
-    /// Probability of moving tangently
+    /// Probability of moving tangently for tons emitted by this source
     p_flow: f32,
-    /// Amount of materials currently being carried by this ton
+    /// Amount of materials initially carried by tons emitted by this source
     materials: Vec<f32>,
+}
+
+pub struct TonSourceBuilder {
     /// Emission shape
-    shape: Shape
+    shape: Shape,
+    /// Probability of moving further in a straight line for tons emitted by this source
+    p_straight: f32,
+    /// Probability of moving further in a piecewise approximated for tons emitted by this source
+    /// parabolic trajectory
+    p_parabolic: f32,
+    /// Probability of moving tangently for tons emitted by this source
+    p_flow: f32,
+    /// Amount of materials initially carried by tons emitted by this source
+    materials: Vec<f32>,
 }
 
 impl TonSource {
-    pub fn new() -> TonSource {
-        TonSource {
-            p_straight: 0.0,
-            p_parabolic: 0.0,
-            p_flow: 0.0,
-            materials: Vec::new(),
-            shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) }
-        }
-    }
-
-    pub fn p_straight(&mut self, p_straight: f32) -> &mut TonSource {
-        self.p_straight = p_straight;
-        self
-    }
-
-    pub fn p_parabolic(&mut self, p_parabolic: f32) -> &mut TonSource {
-        self.p_parabolic = p_parabolic;
-        self
-    }
-
-    pub fn p_flow(&mut self, p_flow: f32) -> &mut TonSource {
-        self.p_flow = p_flow;
-        self
-    }
-
-    pub fn materials(&mut self, materials: &Vec<f32>) -> &mut TonSource {
-        self.materials = materials.clone();
-        self
-    }
-
-    pub fn point_shaped(&mut self, position: &Vector3<f32>) -> &mut TonSource {
-        self.shape = Shape::Point { position: position.clone() };
-        self
-    }
-
     /// Generates a new gammaton with associated ray origin and ray direction
     pub fn emit<'a>(&'a self, count: u32) -> Box<Iterator<Item = (Ton, Vector3<f32>, Vector3<f32>)> + 'a> {
         let p_straight = self.p_straight;
@@ -99,5 +78,52 @@ impl TonSource {
         );
 
         Box::new(emissions)
+    }
+}
+
+impl TonSourceBuilder {
+    pub fn new() -> TonSourceBuilder {
+        TonSourceBuilder {
+            p_straight: 0.0,
+            p_parabolic: 0.0,
+            p_flow: 0.0,
+            materials: Vec::new(),
+            shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) }
+        }
+    }
+
+    pub fn p_straight(mut self, p_straight: f32) -> TonSourceBuilder {
+        self.p_straight = p_straight;
+        self
+    }
+
+    pub fn p_parabolic(mut self, p_parabolic: f32) -> TonSourceBuilder {
+        self.p_parabolic = p_parabolic;
+        self
+    }
+
+    pub fn p_flow(mut self, p_flow: f32) -> TonSourceBuilder {
+        self.p_flow = p_flow;
+        self
+    }
+
+    pub fn materials(mut self, materials: &Vec<f32>) -> TonSourceBuilder {
+        self.materials = materials.clone();
+        self
+    }
+
+    pub fn point_shaped(mut self, position: &Vector3<f32>) -> TonSourceBuilder {
+        self.shape = Shape::Point { position: position.clone() };
+        self
+    }
+
+    pub fn build(self) -> TonSource {
+        TonSource {
+            shape: self.shape,
+            p_straight: self.p_straight,
+            p_parabolic: self.p_parabolic,
+            p_flow: self.p_flow,
+            materials: self.materials
+        }
     }
 }

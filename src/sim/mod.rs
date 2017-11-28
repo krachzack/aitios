@@ -8,7 +8,7 @@ use std::io;
 
 use ::cgmath::Vector3;
 
-use self::ton::TonSource;
+use self::ton::{Ton, TonSource, TonSourceBuilder};
 
 struct Simulation {
     scene: Scene,
@@ -48,10 +48,11 @@ impl Simulation {
         print!("Starting simulation iteration with {} particles... ", particle_count);
         io::stdout().flush().unwrap();
 
-        let mut source = TonSource::new();
-        source.p_straight(1.0)
+        let source = TonSourceBuilder::new()
+            .p_straight(1.0)
             .materials(&vec![1.0])
-            .point_shaped(&source_position);
+            .point_shaped(&source_position)
+            .build();
 
 
         let particle_hits = source.emit(particle_count)
