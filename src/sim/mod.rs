@@ -27,6 +27,8 @@ pub struct SimulationBuilder {
 
 impl Simulation {
     pub fn run(&mut self) {
+        print!("Running simulation... ");
+        io::stdout().flush().unwrap();
         for _ in 0..self.iterations {
             self.iterate()
         }
@@ -38,7 +40,7 @@ impl Simulation {
             .filter_map(|(_, ray_origin, ray_direction)| self.scene.intersect(&ray_origin, &ray_direction));
 
         let hit_surface = SurfaceBuilder::new().add_surface_from_points(particle_hits).build();
-        println!("{} hits", hit_surface.samples.len());
+        println!("Ok, {} hits", hit_surface.samples.len());
 
         print!("Writing hits to testdata/hits.obj... ");
         io::stdout().flush().unwrap();
