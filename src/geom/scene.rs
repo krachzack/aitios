@@ -24,11 +24,16 @@ impl Scene {
             .fold(
                 Scene { indices: Vec::new(), positions: Vec::new(), normals: Vec::new(), texcoords: Vec::new() },
                 move |mut scene, (indices, positions, normals, texcoords)| {
+                    // Use positions to calculate vertex count since normals and texcoords
+                    // are optional and may be empty
                     let old_vtx_count = (scene.positions.len() / 3) as u32;
                     scene.indices.extend(
                         indices.iter().map(|i| old_vtx_count + i)
                     );
                     scene.positions.extend(positions);
+
+                    // FIXME everything breaks down when some models have the optional
+                    // fields and some have not. In this case, only positions are indexed properly
                     scene.normals.extend(normals);
                     scene.texcoords.extend(texcoords);
 
@@ -37,8 +42,9 @@ impl Scene {
             )
     }
 
-    /// Finds the nearest intersection of the given ray with the scene
-    pub fn intersect_all(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Vec<Vector3<f32>> {
+    /// Finds all intersections of the given ray with triangles in the scene.
+    /// Front as well as back-facing triangles will be hit, the list of hits will not be sorted.
+    /*pub fn intersect_all(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Vec<Vector3<f32>> {
         self.indices.chunks(3)
             .map(
                 |i| (
@@ -49,9 +55,9 @@ impl Scene {
             ).filter_map(
                 |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
             ).collect()
-    }
+    }*/
 
-    /// Finds the nearest intersection of the given ray with the scene
+    /// Finds the nearest intersection of the given ray with the triangles in the scene
     pub fn intersect(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Option<Vector3<f32>> {
         self.indices.chunks(3)
             .map(

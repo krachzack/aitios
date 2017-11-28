@@ -52,7 +52,7 @@ impl Surface {
         Surface { points: point_iter.into_iter().collect() }
     }
 
-    pub fn merge<S>(surfaces: S) -> Surface
+    /*pub fn merge<S>(surfaces: S) -> Surface
     where
         S : IntoIterator<Item = Surface>
     {
@@ -63,11 +63,7 @@ impl Surface {
         }
 
         Surface { points: merged_points }
-    }
-
-    pub fn points(&self) -> &Vec<Vector3<f32>> {
-        &self.points
-    }
+    }*/
 
     pub fn dump<S : io::Write>(&self, sink: &mut S) -> io::Result<usize> {
         let mut written : usize = 0;
