@@ -1,6 +1,8 @@
 
 use std::io;
-use ::cgmath::Vector3;
+use std::cmp::Ordering::Equal;
+use ::cgmath::{Vector3};
+use ::cgmath::prelude::*;
 use ::rand;
 use ::geom::tri::area;
 
@@ -38,6 +40,12 @@ pub struct SurfaceBuilder {
     materials: Vec<f32>
 }
 
+impl Surfel {
+    pub fn position(&self) -> &Vector3<f32> {
+        &self.position
+    }
+}
+
 impl Surface {
     pub fn dump<S : io::Write>(&self, sink: &mut S) -> io::Result<usize> {
         let mut written : usize = 0;
@@ -63,6 +71,17 @@ impl Surface {
         }
 
         Ok(written)
+    }
+
+    pub fn nearest<'a>(&'a mut self, from: &Vector3<f32>) -> &'a mut Surfel {
+        let from = from.clone();
+        self.samples.iter_mut().min_by(
+            |a, b| {
+                let dist_a = a.position.distance2(from);
+                let dist_b = b.position.distance2(from);
+                dist_a.partial_cmp(&dist_b).unwrap_or(Equal)
+            }
+        ).unwrap() // panics if samples is empty
     }
 }
 
