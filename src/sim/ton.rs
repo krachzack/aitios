@@ -14,7 +14,7 @@ pub struct Ton {
     #[allow(dead_code)]
     p_flow: f32,
     /// Amount of materials currently being carried by this ton
-    materials: Vec<f32>
+    pub materials: Vec<f32>
 }
 
 #[derive(Clone)]

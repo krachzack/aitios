@@ -3,6 +3,11 @@ name = "aitios"
 version = "0.1.0"
 authors = ["PhilippStadler"]
 
+[features]
+default = [ "dump_hit_map", "dump_surfels" ]
+dump_hit_map = []
+dump_surfels = []
+
 [dependencies]
 cgmath = "0.15.0"
 tobj = "0.1.6"
