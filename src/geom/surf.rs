@@ -13,7 +13,7 @@ pub struct Surface {
 
 /// Represents an element of the surface of an object
 pub struct Surfel {
-    position: Vector3<f32>,
+    pub position: Vector3<f32>,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
     delta_straight: f32,
     /// Deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
@@ -23,7 +23,7 @@ pub struct Surfel {
     #[allow(dead_code)]
     delta_flow: f32,
     /// Holds the amount of materials as numbers in the interval 0..1
-    materials: Vec<f32>
+    pub materials: Vec<f32>
 }
 
 pub struct SurfaceBuilder {
@@ -38,12 +38,6 @@ pub struct SurfaceBuilder {
     delta_flow: f32,
     /// Holds the initial amount of materials as numbers in the interval 0..1
     materials: Vec<f32>
-}
-
-impl Surfel {
-    pub fn position(&self) -> &Vector3<f32> {
-        &self.position
-    }
 }
 
 impl Surface {
@@ -73,7 +67,7 @@ impl Surface {
         Ok(written)
     }
 
-    pub fn nearest<'a>(&'a mut self, from: &Vector3<f32>) -> &'a mut Surfel {
+    pub fn nearest<'a>(&'a mut self, from: Vector3<f32>) -> &'a mut Surfel {
         let from = from.clone();
         self.samples.iter_mut().min_by(
             |a, b| {
@@ -151,7 +145,7 @@ impl SurfaceBuilder {
     ///
     /// The initial values of the surfels are provided to the builder before calling
     /// this method.
-    pub fn add_surface_from_indexed_triangles(self, positions: &Vec<f32>, indices: &Vec<u32>) -> SurfaceBuilder {
+    pub fn add_surface_from_indexed_triangles(self, positions: &Vec<f32>, indices: &Vec<u32>, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
         let triangles = indices.chunks(3)
             .map(
                 |i| (
@@ -164,7 +158,6 @@ impl SurfaceBuilder {
         let surfel_positions = triangles.fold(
             Vec::new(),
             |mut acc, (v0, v1, v2)| {
-                let surfels_per_sqr_unit = 1000.0;
                 let surfel_count = (surfels_per_sqr_unit * area(v0, v1, v2)).ceil() as i32;
 
                 for _ in 0..surfel_count {
