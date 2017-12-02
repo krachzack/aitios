@@ -1,10 +1,10 @@
 
 use std::io;
 use std::cmp::Ordering::Equal;
-use ::cgmath::{Vector3};
+use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
 use ::rand;
-use ::geom::tri::area;
+use ::geom::scene::{Scene};
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
@@ -14,7 +14,9 @@ pub struct Surface {
 /// Represents an element of the surface of an object
 pub struct Surfel {
     pub position: Vector3<f32>,
+    pub texcoords: Vector2<f32>,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
+    #[allow(dead_code)]
     delta_straight: f32,
     /// Deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
     #[allow(dead_code)]
@@ -31,10 +33,8 @@ pub struct SurfaceBuilder {
     /// Initial deterioration rate of the probability of a gammaton moving further in a straight line
     delta_straight: f32,
     /// Initial deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
-    #[allow(dead_code)]
     delta_parabolic: f32,
     /// Initial deterioration rate of the probability of a gammaton flowing in a tangent direction
-    #[allow(dead_code)]
     delta_flow: f32,
     /// Holds the initial amount of materials as numbers in the interval 0..1
     materials: Vec<f32>
@@ -119,6 +119,7 @@ impl SurfaceBuilder {
 
         let prototype_surfel = Surfel {
             position: Vector3::new(-1.0, -1.0, -1.0),
+            texcoords: Vector2::new(-1.0, -1.0),
             delta_straight: self.delta_straight,
             delta_parabolic: self.delta_parabolic,
             delta_flow: self.delta_flow,
@@ -144,37 +145,44 @@ impl SurfaceBuilder {
     /// but not really.
     ///
     /// The initial values of the surfels are provided to the builder before calling
-    /// this method.
-    pub fn add_surface_from_indexed_triangles(self, positions: &Vec<f32>, indices: &Vec<u32>, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
-        let triangles = indices.chunks(3)
-            .map(
-                |i| (
-                    Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
-                    Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
-                    Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize])
-                )
-            );
+    /// this method (not after).
+    pub fn add_surface_from_scene(mut self, scene: &Scene, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
+        let delta_straight = self.delta_straight;
+        let delta_parabolic = self.delta_parabolic;
+        let delta_flow = self.delta_flow;
+        let materials = self.materials.clone();
 
-        let surfel_positions = triangles.fold(
-            Vec::new(),
-            |mut acc, (v0, v1, v2)| {
-                let surfel_count = (surfels_per_sqr_unit * area(v0, v1, v2)).ceil() as i32;
+        self.samples.extend(
+            scene.triangles()
+                .flat_map(|t| {
+                    let surfel_count = (surfels_per_sqr_unit * t.area()).ceil() as i32;
+                    let p0 = t.vertices[0].position;
+                    let p1 = t.vertices[1].position;
+                    let p2 = t.vertices[2].position;
+                    let materials = materials.clone();
 
-                for _ in 0..surfel_count {
-                    let u = rand::random::<f32>();
-                    let v = rand::random::<f32>();
-                    let random_point = (1.0 - u.sqrt()) * v0 +
-                                       (u.sqrt() * (1.0 - v)) * v1 +
-                                       (u.sqrt() * v) * v2;
+                    (0..surfel_count).map(move |_| {
+                        let u = rand::random::<f32>();
+                        let v = rand::random::<f32>();
+                        let position = (1.0 - u.sqrt()) * p0 +
+                                        (u.sqrt() * (1.0 - v)) * p1 +
+                                        (u.sqrt() * v) * p2;
 
-                    acc.push(random_point);
-                }
+                        let texcoords = t.texcoords_at(position);
 
-                acc
-            }
+                        Surfel {
+                            position,
+                            texcoords,
+                            delta_straight: delta_straight,
+                            delta_parabolic: delta_parabolic,
+                            delta_flow: delta_flow,
+                            materials: materials.clone()
+                        }
+                    })
+                })
         );
 
-        self.add_surface_from_points(surfel_positions)
+        self
     }
 
     /// Consumes the builder to create a new surface that is returned.

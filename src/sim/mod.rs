@@ -1,6 +1,6 @@
 mod ton;
 
-use ::geom::surf::{Surface, SurfaceBuilder, Surfel};
+use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
 use std::fs;
 use std::io::prelude::*;
@@ -8,7 +8,7 @@ use std::io;
 
 use ::cgmath::Vector3;
 
-use self::ton::{Ton, TonSourceBuilder, TonSource};
+use self::ton::{TonSourceBuilder, TonSource};
 
 pub struct Simulation {
     scene: Scene,
@@ -100,7 +100,7 @@ impl SimulationBuilder {
         print!("Loading OBJ at {}... ", scene_obj_file_path);
         io::stdout().flush().unwrap();
         let scene = Scene::load_from_file(scene_obj_file_path);
-        println!("Ok, {} triangles", scene.indices.len() / 3);
+        println!("Ok, {} triangles", scene.triangle_count());
 
         print!("Generating surface models from meshes... ");
         io::stdout().flush().unwrap();
@@ -108,7 +108,7 @@ impl SimulationBuilder {
                         .delta_straight(1.0)
                         // just one material on the surfels with an initial value of 0.0 for all surfels
                         .materials(vec![0.0])
-                        .add_surface_from_indexed_triangles(&scene.positions, &scene.indices, 2500.0)
+                        .add_surface_from_scene(&scene, 2500.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 

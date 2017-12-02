@@ -8,7 +8,7 @@ mod sim;
 use sim::SimulationBuilder;
 
 fn main() {
-    let model_obj_path = "testdata/joined-pipes-floorless.obj";
+    let model_obj_path = "testdata/buddha_room.obj";
     
     SimulationBuilder::new()
         .scene(model_obj_path)

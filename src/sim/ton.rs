@@ -5,6 +5,7 @@ use ::rand;
 
 pub struct Ton {
     /// Probability of moving further in a straight line
+    #[allow(dead_code)]
     p_straight: f32,
     /// Probability of moving further in a piecewise approximated
     /// parabolic trajectory
@@ -29,10 +30,8 @@ pub struct TonSource {
     p_straight: f32,
     /// Probability of moving further in a piecewise approximated for tons emitted by this source
     /// parabolic trajectory
-    #[allow(dead_code)]
     p_parabolic: f32,
     /// Probability of moving tangently for tons emitted by this source
-    #[allow(dead_code)]
     p_flow: f32,
     /// Amount of materials initially carried by tons emitted by this source
     materials: Vec<f32>,
@@ -46,10 +45,8 @@ pub struct TonSourceBuilder {
     p_straight: f32,
     /// Probability of moving further in a piecewise approximated for tons emitted by this source
     /// parabolic trajectory
-    #[allow(dead_code)]
     p_parabolic: f32,
     /// Probability of moving tangently for tons emitted by this source
-    #[allow(dead_code)]
     p_flow: f32,
     /// Amount of materials initially carried by tons emitted by this source
     materials: Vec<f32>,
