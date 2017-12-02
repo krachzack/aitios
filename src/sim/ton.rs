@@ -87,6 +87,10 @@ impl TonSource {
 
         Box::new(emissions)
     }
+
+    pub fn emission_count(&self) -> u32 {
+        self.emission_count
+    }
 }
 
 impl TonSourceBuilder {

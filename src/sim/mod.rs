@@ -27,7 +27,7 @@ pub struct SimulationBuilder {
 
 impl Simulation {
     pub fn run(&mut self) {
-        println!("Running simulation... ");
+        println!("Running simulation with {} particles... ", self.sources.iter().map(|s| s.emission_count()).sum::<u32>());
         for _ in 0..self.iterations {
             self.iterate()
         }
@@ -43,9 +43,12 @@ impl Simulation {
             ).collect();
 
         println!("Tracing...");
-
+        let mut iteration_nr = 1;
         for &(ref ton, intersection_point) in initial_hits.iter() {
             let interacting_surfel = self.surface.nearest(intersection_point);
+
+            println!("Interacting ton {} of {}", iteration_nr, initial_hits.len());
+            iteration_nr += 1;
 
             assert_eq!(interacting_surfel.materials.len(), ton.materials.len());
             let material_transports = interacting_surfel.materials
@@ -105,7 +108,7 @@ impl SimulationBuilder {
                         .delta_straight(1.0)
                         // just one material on the surfels with an initial value of 0.0 for all surfels
                         .materials(vec![0.0])
-                        .add_surface_from_indexed_triangles(&scene.positions, &scene.indices, 5000.0)
+                        .add_surface_from_indexed_triangles(&scene.positions, &scene.indices, 2500.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 
@@ -141,7 +144,7 @@ impl SimulationBuilder {
                     .p_straight(1.0)
                     .materials(&vec![1.0])
                     .point_shaped(&position)
-                    .emission_count(50000)
+                    .emission_count(5000)
                     .build()
         );
         self
