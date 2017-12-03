@@ -8,17 +8,17 @@ use std::io::prelude::*;
 use std::io;
 use std::time::{Instant};
 
-use ::cgmath::Vector3;
-
 use ::image;
 
 use self::ton::{TonSourceBuilder, TonSource};
+use self::effect::{Effect, Blend};
 
 pub struct Simulation {
     scene: Scene,
     surface: Surface,
     iterations: u32,
-    sources: Vec<TonSource>
+    sources: Vec<TonSource>,
+    effects: Vec<Box<Effect>>
 }
 
 pub struct SimulationBuilder {
@@ -26,7 +26,8 @@ pub struct SimulationBuilder {
     scene: Scene,
     surface: Surface,
     iterations: u32,
-    sources: Vec<TonSource>
+    sources: Vec<TonSource>,
+    effects: Vec<Box<Effect>>
 }
 
 impl Simulation {
@@ -69,7 +70,7 @@ impl Simulation {
                 );
 
             for (ref mut surfel_material, &ton_material) in material_transports {
-                let ton_to_surface_interaction_weight = 0.06; // k value for accumulation of material
+                let ton_to_surface_interaction_weight = 0.15; // k value for accumulation of material
                 **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
             }
         }
@@ -80,6 +81,10 @@ impl Simulation {
 
         #[cfg(feature = "dump_hit_texture")]
         self.dump_hit_texture();
+
+        for effect in &self.effects {
+            effect.perform(&self.scene, &self.surface)
+        }
     }
 
     #[cfg(feature = "dump_hit_map")]
@@ -125,6 +130,13 @@ impl Simulation {
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
             let intensity = (sample.substances[0] * 255.0) as u8;
 
+            if(x > tex_width || y > tex_height) {
+                // Interpolation of texture coordinates can lead to degenerate uv coordinates
+                // e.g. < 0 or > 1
+                // In such cases, do not try to save the surfel but ingore it
+                continue;
+            }
+
             // TODO right now we overwrite when we find something brighter
             let overwrite = {
                 let previous_intensity : &image::Luma<u8> = tex_buf.get_pixel(x, y);
@@ -158,7 +170,8 @@ impl SimulationBuilder {
             scene: Scene::empty(),
             surface: Surface { samples: Vec::new() },
             iterations: 1,
-            sources: Vec::new()
+            sources: Vec::new(),
+            effects: Vec::new()
         }
     }
 
@@ -174,7 +187,7 @@ impl SimulationBuilder {
                         .delta_straight(1.0)
                         // just one substance on the surfels with an initial value of 0.0 for all surfels
                         .substances(vec![0.0])
-                        .add_surface_from_scene(&scene, 3000.0)
+                        .add_surface_from_scene(&scene, 5000.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 
@@ -214,12 +227,23 @@ impl SimulationBuilder {
         self
     }
 
+    pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str) -> SimulationBuilder {
+        self.effects.push(
+            Box::new(
+                Blend::new(substance_idx, subject_material_name, subject_material_map, blend_towards_tex_file)
+            )
+        );
+
+        self
+    }
+
     pub fn build(self) -> Simulation {
         Simulation {
             scene: self.scene,
             surface: self.surface,
             iterations: self.iterations,
-            sources: self.sources
+            sources: self.sources,
+            effects: self.effects
         }
     }
 }

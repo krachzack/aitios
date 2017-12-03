@@ -21,6 +21,12 @@ fn main() {
                 .point_shaped(&Vector3::new(0.0, 4.0, 1.0))
                 .emission_count(30000)
         })
+        .add_effect_blend(
+            0, // Index of substance that drives the blend
+            "green_plastic", // material that gets changed
+            "map_Kd", // map of the material that gets changed
+            "green_plastic_maximum_weathered.png"
+        )
         .iterations(1)
         .build()
         .run();
