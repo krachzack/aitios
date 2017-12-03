@@ -1,4 +1,5 @@
 mod ton;
+mod effect;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
@@ -203,15 +204,13 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn add_point_source(mut self, position: &Vector3<f32>) -> SimulationBuilder {
+    pub fn add_source<F>(mut self, build: F) -> SimulationBuilder
+        where F: FnOnce(TonSourceBuilder) -> TonSourceBuilder {
+
         self.sources.push(
-            TonSourceBuilder::new()
-                    .p_straight(1.0)
-                    .substances(&vec![1.0])
-                    .point_shaped(&position)
-                    .emission_count(30000)
-                    .build()
+            build(TonSourceBuilder::new()).build()
         );
+
         self
     }
 
