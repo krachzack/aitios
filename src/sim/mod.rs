@@ -47,6 +47,7 @@ impl Simulation {
             ).collect();
         println!("Ok, took {} minutes", before.elapsed().as_secs() / 60);
 
+        println!("Starting ton tracing...");
         let before = Instant::now();
         let mut iteration_nr = 1;
         let print_progress_interval = if initial_hits.len() < 10 { 1 } else { initial_hits.len() / 10 };
@@ -67,7 +68,7 @@ impl Simulation {
                 );
 
             for (ref mut surfel_material, &ton_material) in material_transports {
-                let ton_to_surface_interaction_weight = 0.5; // k value for accumulation of material
+                let ton_to_surface_interaction_weight = 0.06; // k value for accumulation of material
                 **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
             }
         }
@@ -103,8 +104,8 @@ impl Simulation {
         print!("Collecting interacted surfels into textures... ");
         io::stdout().flush().unwrap();
 
-        let tex_width = 1024;
-        let tex_height = 1024;
+        let tex_width = 128;
+        let tex_height = 128;
 
         // Generate one buffer and filename per source material
         let mut texes : Vec<_> = self.scene.materials.iter()
@@ -119,8 +120,8 @@ impl Simulation {
             let (_, ref mut tex_buf) = texes[sample.material_idx];
 
             let x = (sample.texcoords.x * (tex_width as f32)) as u32;
-            // NOTE v might be flipped
-            let y = (sample.texcoords.y * (tex_height as f32)) as u32;
+            // NOTE blender uses inversed v coordinate
+            let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
             let intensity = (sample.substances[0] * 255.0) as u8;
 
             // TODO right now we overwrite when we find something brighter
@@ -172,7 +173,7 @@ impl SimulationBuilder {
                         .delta_straight(1.0)
                         // just one substance on the surfels with an initial value of 0.0 for all surfels
                         .substances(vec![0.0])
-                        .add_surface_from_scene(&scene, 1000.0)
+                        .add_surface_from_scene(&scene, 3000.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 
@@ -208,7 +209,7 @@ impl SimulationBuilder {
                     .p_straight(1.0)
                     .substances(&vec![1.0])
                     .point_shaped(&position)
-                    .emission_count(6000)
+                    .emission_count(30000)
                     .build()
         );
         self
