@@ -8,6 +8,8 @@ use std::io;
 
 use ::cgmath::Vector3;
 
+use ::image;
+
 use self::ton::{TonSourceBuilder, TonSource};
 
 pub struct Simulation {
@@ -47,14 +49,17 @@ impl Simulation {
         for &(ref ton, intersection_point) in initial_hits.iter() {
             let interacting_surfel = self.surface.nearest(intersection_point);
 
-            println!("Interacting ton {} of {}", iteration_nr, initial_hits.len());
+            if (iteration_nr % 50) == 0 {
+                println!("Interacting... {}%", (100.0 * (iteration_nr as f64) / (initial_hits.len() as f64)).round());
+            }
+
             iteration_nr += 1;
 
-            assert_eq!(interacting_surfel.materials.len(), ton.materials.len());
-            let material_transports = interacting_surfel.materials
+            assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+            let material_transports = interacting_surfel.substances
                 .iter_mut()
                 .zip(
-                    ton.materials.iter()
+                    ton.substances.iter()
                 );
 
             for (ref mut surfel_material, &ton_material) in material_transports {
@@ -65,6 +70,9 @@ impl Simulation {
 
         #[cfg(feature = "dump_hit_map")]
         self.dump_hit_map();
+
+        #[cfg(feature = "dump_hit_texture")]
+        self.dump_hit_texture();
     }
 
     #[cfg(feature = "dump_hit_map")]
@@ -74,7 +82,7 @@ impl Simulation {
         io::stdout().flush().unwrap();
 
         let hit_map = self.surface.samples.iter()
-        .filter_map(|s| if s.materials[0] > 0.0 { Some(s.position) } else { None });
+        .filter_map(|s| if s.substances[0] > 0.0 { Some(s.position) } else { None });
 
         let hit_map = SurfaceBuilder::new()
             .add_surface_from_points(hit_map)
@@ -83,6 +91,57 @@ impl Simulation {
         hit_map.dump(&mut fs::File::create(hit_map_file).unwrap()).unwrap();
 
         println!("Ok");
+    }
+
+    #[cfg(feature = "dump_hit_texture")]
+    fn dump_hit_texture(&self) {
+        print!("Collecting interacted surfels into textures... ");
+        io::stdout().flush().unwrap();
+
+        let tex_width = 1024;
+        let tex_height = 1024;
+
+        // Generate one buffer and filename per source material
+        let mut texes : Vec<_> = self.scene.materials.iter()
+            .map(|m| {
+                let filename = format!("testdata/{}-hittex.png", m.diffuse_texture);
+                let tex_buf = image::ImageBuffer::new(tex_width, tex_height);
+                (filename, tex_buf)
+            }).collect();
+
+        // Draw surfels onto the textures
+        for sample in &self.surface.samples {
+            let (_, ref mut tex_buf) = texes[sample.material_idx];
+
+            let x = (sample.texcoords.x * (tex_width as f32)) as u32;
+            // NOTE v might be flipped
+            let y = (sample.texcoords.y * (tex_height as f32)) as u32;
+            let intensity = (sample.substances[0] * 255.0) as u8;
+
+            // TODO right now we overwrite when we find something brighter
+            let overwrite = {
+                let previous_intensity : &image::Luma<u8> = tex_buf.get_pixel(x, y);
+                previous_intensity.data[0] < intensity
+            };
+
+            if overwrite {
+                //println!("[{},{}] = {}", x, y, intensity);
+                tex_buf.put_pixel(x, y, image::Luma([intensity]));   
+            }
+        }
+
+        println!("Ok");
+
+        // Serialze them
+        for (tex_file, tex_buf) in texes.into_iter() {
+            print!("Writing {}... ", tex_file);
+            io::stdout().flush().unwrap();
+
+            let ref mut tex_file = fs::File::create(tex_file).unwrap();
+            let _ = image::ImageLuma8(tex_buf).save(tex_file, image::PNG).unwrap();
+
+            println!("Ok");
+        }
     }
 }
 
@@ -106,9 +165,9 @@ impl SimulationBuilder {
         io::stdout().flush().unwrap();
         let surface = SurfaceBuilder::new()
                         .delta_straight(1.0)
-                        // just one material on the surfels with an initial value of 0.0 for all surfels
-                        .materials(vec![0.0])
-                        .add_surface_from_scene(&scene, 2500.0)
+                        // just one substance on the surfels with an initial value of 0.0 for all surfels
+                        .substances(vec![0.0])
+                        .add_surface_from_scene(&scene, 2000.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 
@@ -142,9 +201,9 @@ impl SimulationBuilder {
         self.sources.push(
             TonSourceBuilder::new()
                     .p_straight(1.0)
-                    .materials(&vec![1.0])
+                    .substances(&vec![1.0])
                     .point_shaped(&position)
-                    .emission_count(5000)
+                    .emission_count(15000)
                     .build()
         );
         self

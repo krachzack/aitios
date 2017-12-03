@@ -6,7 +6,9 @@ use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
 
 pub struct Scene {
-    pub entities: Vec<Entity>
+    pub entities: Vec<Entity>,
+    /// Materials as loaded from the OBJ, not the substances being carried
+    pub materials: Vec<tobj::Material>
 }
 
 pub struct Entity {
@@ -24,11 +26,115 @@ pub struct Mesh {
 
 pub struct Vertex {
     pub position: Vector3<f32>,
-    pub texcoords: Vector2<f32>
+    pub texcoords: Vector2<f32>,
+    pub material_idx: usize
 }
 
 pub struct Triangle {
     pub vertices: [Vertex; 3]
+}
+
+impl Scene {
+    pub fn empty() -> Scene {
+        Scene {
+            entities: Vec::new(),
+            materials: Vec::new()
+        }
+    }
+
+    /// Loads the obj file at the given file system path into a newly created scene
+    /// All contained models will be merged into a single mesh
+    pub fn load_from_file(obj_file_path: &str) -> Scene {
+        let (models, materials) = tobj::load_obj(&Path::new(obj_file_path)).unwrap();
+
+        Scene {
+            entities: models.into_iter()
+                .map(move |m| {
+                    Entity {
+                        name: m.name,
+                        material_idx: m.mesh.material_id.unwrap(), // All meshes need a material, otherwise panic
+                        mesh: Mesh {
+                            indices: m.mesh.indices,
+                            positions: m.mesh.positions,
+                            normals: m.mesh.normals,
+                            texcoords: m.mesh.texcoords
+                        }
+                    }
+                })
+                .collect(),
+            materials
+        }
+    }
+
+    /// Returns an iterator over the triangles in all meshes
+    pub fn triangles<'a>(&'a self) -> Box<Iterator<Item = Triangle> + 'a> {
+        Box::new(
+            self.entities.iter()
+                .flat_map(
+                    |e| {
+                        let mesh = &e.mesh;
+                        let positions = &mesh.positions;
+                        let texcoords = &mesh.texcoords;
+                        let material_idx = e.material_idx;
+
+                        mesh.indices.chunks(3)
+                            .map(
+                                move |i| Triangle {
+                                    vertices: [
+                                        Vertex {
+                                            position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
+                                            texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
+                                            material_idx
+                                        },
+                                        Vertex {
+                                            position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
+                                            texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
+                                            material_idx
+                                        },
+                                        Vertex {
+                                            position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
+                                            texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
+                                            material_idx
+                                        }
+                                    ]
+                                }
+                            )
+                    }
+                )
+        )
+    }
+
+    /// Finds the nearest intersection of the given ray with the triangles in the scene
+    pub fn intersect(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Option<Vector3<f32>> {
+        self.entities.iter()
+            .flat_map(
+                |e| {
+                    let mesh = &e.mesh;
+                    let positions = &mesh.positions;
+
+                    mesh.indices.chunks(3)
+                        .map(
+                            move |i| (
+                                Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
+                                Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
+                                Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize])
+                            )
+                        )
+                }
+            )
+            .filter_map(
+                |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
+            )
+            .min_by(|i0, i1|
+                // We assume no NaN or infinities, that's why whe need to unwrap 
+                ray_origin.distance2(*i0).partial_cmp(&ray_origin.distance2(*i1)).unwrap()
+            )
+    }
+
+    /// Calculates total triangle count in scene
+    pub fn triangle_count(&self) -> usize {
+        self.entities.iter().map(|e| e.mesh.indices.len() / 3).sum()
+    }
 }
 
 impl Triangle {
@@ -81,102 +187,5 @@ impl Triangle {
             .zip(coords)
             .map(|(w, c)| *w * c)
             .sum()
-    }
-}
-
-impl Scene {
-    pub fn empty() -> Scene {
-        Scene {
-            entities: Vec::new()
-        }
-    }
-
-    /// Loads the obj file at the given file system path into a newly created scene
-    /// All contained models will be merged into a single mesh
-    pub fn load_from_file(obj_file_path: &str) -> Scene {
-        let (models, _materials) = tobj::load_obj(&Path::new(obj_file_path)).unwrap();
-
-        Scene {
-            entities: models.into_iter()
-                .map(move |m| {
-                    Entity {
-                        name: m.name,
-                        material_idx: m.mesh.material_id.unwrap(), // All meshes need a material, otherwise panic
-                        mesh: Mesh {
-                            indices: m.mesh.indices,
-                            positions: m.mesh.positions,
-                            normals: m.mesh.normals,
-                            texcoords: m.mesh.texcoords
-                        }
-                    }
-                })
-                .collect()
-        }
-    }
-
-    /// Returns an iterator over the triangles in all meshes
-    pub fn triangles<'a>(&'a self) -> Box<Iterator<Item = Triangle> + 'a> {
-        Box::new(
-            self.entities.iter()
-                .flat_map(
-                    |e| {
-                        let mesh = &e.mesh;
-                        let positions = &mesh.positions;
-                        let texcoords = &mesh.texcoords;
-
-                        mesh.indices.chunks(3)
-                            .map(
-                                move |i| Triangle {
-                                    vertices: [
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize])
-                                        },
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize])
-                                        },
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize])
-                                        }
-                                    ]
-                                }
-                            )
-                    }
-                )
-        )
-    }
-
-    /// Finds the nearest intersection of the given ray with the triangles in the scene
-    pub fn intersect(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Option<Vector3<f32>> {
-        self.entities.iter()
-            .flat_map(
-                |e| {
-                    let mesh = &e.mesh;
-                    let positions = &mesh.positions;
-
-                    mesh.indices.chunks(3)
-                        .map(
-                            move |i| (
-                                Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
-                                Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
-                                Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize])
-                            )
-                        )
-                }
-            )
-            .filter_map(
-                |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
-            )
-            .min_by(|i0, i1|
-                // We assume no NaN or infinities, that's why whe need to unwrap 
-                ray_origin.distance2(*i0).partial_cmp(&ray_origin.distance2(*i1)).unwrap()
-            )
-    }
-
-    /// Calculates total triangle count in scene
-    pub fn triangle_count(&self) -> usize {
-        self.entities.iter().map(|e| e.mesh.indices.len() / 3).sum()
     }
 }

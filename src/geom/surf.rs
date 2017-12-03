@@ -15,6 +15,8 @@ pub struct Surface {
 pub struct Surfel {
     pub position: Vector3<f32>,
     pub texcoords: Vector2<f32>,
+    /// Index of the source material, as loaded from the source scene
+    pub material_idx: usize,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
     #[allow(dead_code)]
     delta_straight: f32,
@@ -24,8 +26,8 @@ pub struct Surfel {
     /// Deterioration rate of the probability of a gammaton flowing in a tangent direction
     #[allow(dead_code)]
     delta_flow: f32,
-    /// Holds the amount of materials as numbers in the interval 0..1
-    pub materials: Vec<f32>
+    /// Holds the amount of substances as numbers in the interval 0..1
+    pub substances: Vec<f32>
 }
 
 pub struct SurfaceBuilder {
@@ -36,8 +38,8 @@ pub struct SurfaceBuilder {
     delta_parabolic: f32,
     /// Initial deterioration rate of the probability of a gammaton flowing in a tangent direction
     delta_flow: f32,
-    /// Holds the initial amount of materials as numbers in the interval 0..1
-    materials: Vec<f32>
+    /// Holds the initial amount of substances as numbers in the interval 0..1
+    substances: Vec<f32>
 }
 
 impl Surface {
@@ -86,7 +88,7 @@ impl SurfaceBuilder {
             delta_straight: 0.0,
             delta_parabolic: 0.0,
             delta_flow: 0.0,
-            materials: Vec::new()
+            substances: Vec::new()
         }
     }
 
@@ -108,11 +110,13 @@ impl SurfaceBuilder {
     }
 
     /// Sets initial material composition of all surfels in the Surface built with this builder.
-    pub fn materials(mut self, materials: Vec<f32>) -> SurfaceBuilder {
-        self.materials = materials;
+    pub fn substances(mut self, substances: Vec<f32>) -> SurfaceBuilder {
+        self.substances = substances;
         self
     }
 
+    /// Creates a surface from only points
+    /// Only useful for debugging, since you can make a surface and dump it.
     pub fn add_surface_from_points<P>(mut self, points: P) -> SurfaceBuilder
     where
         P : IntoIterator<Item = Vector3<f32>> {
@@ -120,17 +124,18 @@ impl SurfaceBuilder {
         let prototype_surfel = Surfel {
             position: Vector3::new(-1.0, -1.0, -1.0),
             texcoords: Vector2::new(-1.0, -1.0),
+            material_idx: 0,
             delta_straight: self.delta_straight,
             delta_parabolic: self.delta_parabolic,
             delta_flow: self.delta_flow,
-            materials: self.materials.clone()
+            substances: self.substances.clone()
         };
 
         let surfels = points.into_iter()
             .map(
                 |position| Surfel {
                     position: position,
-                    materials: prototype_surfel.materials.clone(),
+                    substances: prototype_surfel.substances.clone(),
                     ..prototype_surfel
                 }
             );
@@ -150,7 +155,7 @@ impl SurfaceBuilder {
         let delta_straight = self.delta_straight;
         let delta_parabolic = self.delta_parabolic;
         let delta_flow = self.delta_flow;
-        let materials = self.materials.clone();
+        let substances = self.substances.clone();
 
         self.samples.extend(
             scene.triangles()
@@ -159,7 +164,8 @@ impl SurfaceBuilder {
                     let p0 = t.vertices[0].position;
                     let p1 = t.vertices[1].position;
                     let p2 = t.vertices[2].position;
-                    let materials = materials.clone();
+                    let material_idx = t.vertices[0].material_idx;
+                    let substances = substances.clone();
 
                     (0..surfel_count).map(move |_| {
                         let u = rand::random::<f32>();
@@ -173,10 +179,11 @@ impl SurfaceBuilder {
                         Surfel {
                             position,
                             texcoords,
+                            material_idx,
                             delta_straight: delta_straight,
                             delta_parabolic: delta_parabolic,
                             delta_flow: delta_flow,
-                            materials: materials.clone()
+                            substances: substances.clone()
                         }
                     })
                 })

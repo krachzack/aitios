@@ -14,8 +14,8 @@ pub struct Ton {
     /// Probability of moving tangently
     #[allow(dead_code)]
     p_flow: f32,
-    /// Amount of materials currently being carried by this ton
-    pub materials: Vec<f32>
+    /// Amount of substances currently being carried by this ton
+    pub substances: Vec<f32>
 }
 
 #[derive(Clone)]
@@ -33,8 +33,8 @@ pub struct TonSource {
     p_parabolic: f32,
     /// Probability of moving tangently for tons emitted by this source
     p_flow: f32,
-    /// Amount of materials initially carried by tons emitted by this source
-    materials: Vec<f32>,
+    /// Amount of substances initially carried by tons emitted by this source
+    substances: Vec<f32>,
     emission_count: u32
 }
 
@@ -48,8 +48,8 @@ pub struct TonSourceBuilder {
     p_parabolic: f32,
     /// Probability of moving tangently for tons emitted by this source
     p_flow: f32,
-    /// Amount of materials initially carried by tons emitted by this source
-    materials: Vec<f32>,
+    /// Amount of substances initially carried by tons emitted by this source
+    substances: Vec<f32>,
     emission_count: u32
 }
 
@@ -59,7 +59,7 @@ impl TonSource {
         let p_straight = self.p_straight;
         let p_parabolic = self.p_parabolic;
         let p_flow = self.p_flow;
-        let materials = self.materials.clone();
+        let substances = self.substances.clone();
         let shape = self.shape.clone();
 
         let emissions = (0..self.emission_count).map(
@@ -69,7 +69,7 @@ impl TonSource {
                         p_straight,
                         p_parabolic,
                         p_flow,
-                        materials: materials.clone()
+                        substances: substances.clone()
                     },
                     position.clone(),
                     // Random position on the unit sphere
@@ -96,7 +96,7 @@ impl TonSourceBuilder {
             p_straight: 0.0,
             p_parabolic: 0.0,
             p_flow: 0.0,
-            materials: Vec::new(),
+            substances: Vec::new(),
             shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) },
             emission_count: 10000
         }
@@ -119,8 +119,8 @@ impl TonSourceBuilder {
         self
     }
 
-    pub fn materials(mut self, materials: &Vec<f32>) -> TonSourceBuilder {
-        self.materials = materials.clone();
+    pub fn substances(mut self, substances: &Vec<f32>) -> TonSourceBuilder {
+        self.substances = substances.clone();
         self
     }
 
@@ -140,7 +140,7 @@ impl TonSourceBuilder {
             p_straight: self.p_straight,
             p_parabolic: self.p_parabolic,
             p_flow: self.p_flow,
-            materials: self.materials,
+            substances: self.substances,
             emission_count: self.emission_count
         }
     }

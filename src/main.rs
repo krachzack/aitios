@@ -1,6 +1,7 @@
 extern crate tobj;
 extern crate cgmath;
 extern crate rand;
+extern crate image;
 
 mod geom;
 mod sim;
@@ -12,7 +13,7 @@ fn main() {
     
     SimulationBuilder::new()
         .scene(model_obj_path)
-        .add_point_source(&cgmath::Vector3::new(0.0, 3.0, 0.0))
+        .add_point_source(&cgmath::Vector3::new(0.0, 4.0, 1.0))
         .iterations(1)
         .build()
         .run();
