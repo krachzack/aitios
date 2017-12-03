@@ -5,6 +5,7 @@ use ::geom::scene::Scene;
 use std::fs;
 use std::io::prelude::*;
 use std::io;
+use std::time::{Instant};
 
 use ::cgmath::Vector3;
 
@@ -36,21 +37,24 @@ impl Simulation {
     }
 
     fn iterate(&mut self) {
-        println!("Finding initial intersections...");
-
+        print!("Finding initial intersections...  ");
+        io::stdout().flush().unwrap();
+        let before = Instant::now();
         let initial_hits : Vec<_> = self.sources.iter()
             .flat_map(|src| src.emit())
             .filter_map(|(ton, ray_origin, ray_direction)|
                 self.scene.intersect(&ray_origin, &ray_direction).map(|p| (ton, p) )
             ).collect();
+        println!("Ok, took {} minutes", before.elapsed().as_secs() / 60);
 
-        println!("Tracing...");
+        let before = Instant::now();
         let mut iteration_nr = 1;
+        let print_progress_interval = if initial_hits.len() < 10 { 1 } else { initial_hits.len() / 10 };
         for &(ref ton, intersection_point) in initial_hits.iter() {
             let interacting_surfel = self.surface.nearest(intersection_point);
 
-            if (iteration_nr % 50) == 0 {
-                println!("Interacting... {}%", (100.0 * (iteration_nr as f64) / (initial_hits.len() as f64)).round());
+            if (iteration_nr % print_progress_interval) == 0 {
+                println!("Tracing materials... {}%", (100.0 * (iteration_nr as f64) / (initial_hits.len() as f64)).round());
             }
 
             iteration_nr += 1;
@@ -63,10 +67,11 @@ impl Simulation {
                 );
 
             for (ref mut surfel_material, &ton_material) in material_transports {
-                let ton_to_surface_interaction_weight = 0.05; // k value for accumulation of material
+                let ton_to_surface_interaction_weight = 0.5; // k value for accumulation of material
                 **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
             }
         }
+        println!("Ok, ton tracing took {} minutes", before.elapsed().as_secs() / 60);
 
         #[cfg(feature = "dump_hit_map")]
         self.dump_hit_map();
@@ -167,7 +172,7 @@ impl SimulationBuilder {
                         .delta_straight(1.0)
                         // just one substance on the surfels with an initial value of 0.0 for all surfels
                         .substances(vec![0.0])
-                        .add_surface_from_scene(&scene, 2000.0)
+                        .add_surface_from_scene(&scene, 1000.0)
                         .build();
         println!("Ok, {} surfels", surface.samples.len());
 
@@ -203,7 +208,7 @@ impl SimulationBuilder {
                     .p_straight(1.0)
                     .substances(&vec![1.0])
                     .point_shaped(&position)
-                    .emission_count(15000)
+                    .emission_count(6000)
                     .build()
         );
         self
