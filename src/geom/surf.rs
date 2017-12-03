@@ -39,7 +39,8 @@ pub struct SurfaceBuilder {
     /// Initial deterioration rate of the probability of a gammaton flowing in a tangent direction
     delta_flow: f32,
     /// Holds the initial amount of substances as numbers in the interval 0..1
-    substances: Vec<f32>
+    substances: Vec<f32>,
+    surfels_per_sqr_unit: f32,
 }
 
 impl Surface {
@@ -88,7 +89,8 @@ impl SurfaceBuilder {
             delta_straight: 0.0,
             delta_parabolic: 0.0,
             delta_flow: 0.0,
-            substances: Vec::new()
+            substances: Vec::new(),
+            surfels_per_sqr_unit: 10000.0
         }
     }
 
@@ -110,8 +112,13 @@ impl SurfaceBuilder {
     }
 
     /// Sets initial material composition of all surfels in the Surface built with this builder.
-    pub fn substances(mut self, substances: Vec<f32>) -> SurfaceBuilder {
-        self.substances = substances;
+    pub fn substances(mut self, substances: &Vec<f32>) -> SurfaceBuilder {
+        self.substances = substances.clone();
+        self
+    }
+
+    pub fn surfels_per_sqr_unit(mut self, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
+        self.surfels_per_sqr_unit = surfels_per_sqr_unit;
         self
     }
 
@@ -151,11 +158,13 @@ impl SurfaceBuilder {
     ///
     /// The initial values of the surfels are provided to the builder before calling
     /// this method (not after).
-    pub fn add_surface_from_scene(mut self, scene: &Scene, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
+    pub fn add_surface_from_scene(mut self, scene: &Scene) -> SurfaceBuilder {
         let delta_straight = self.delta_straight;
         let delta_parabolic = self.delta_parabolic;
         let delta_flow = self.delta_flow;
         let substances = self.substances.clone();
+
+        let surfels_per_sqr_unit = self.surfels_per_sqr_unit;
 
         self.samples.extend(
             scene.triangles()

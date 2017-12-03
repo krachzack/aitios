@@ -130,7 +130,7 @@ impl Simulation {
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
             let intensity = (sample.substances[0] * 255.0) as u8;
 
-            if(x > tex_width || y > tex_height) {
+            if x > tex_width || y > tex_height {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
                 // e.g. < 0 or > 1
                 // In such cases, do not try to save the surfel but ingore it
@@ -175,7 +175,8 @@ impl SimulationBuilder {
         }
     }
 
-    pub fn scene(mut self, scene_obj_file_path: &str) -> SimulationBuilder {
+    pub fn scene<F>(mut self, scene_obj_file_path: &str, build_surface: F) -> SimulationBuilder
+    where F: FnOnce(SurfaceBuilder) -> SurfaceBuilder {
         print!("Loading OBJ at {}... ", scene_obj_file_path);
         io::stdout().flush().unwrap();
         let scene = Scene::load_from_file(scene_obj_file_path);
@@ -183,12 +184,9 @@ impl SimulationBuilder {
 
         print!("Generating surface models from meshes... ");
         io::stdout().flush().unwrap();
-        let surface = SurfaceBuilder::new()
-                        .delta_straight(1.0)
-                        // just one substance on the surfels with an initial value of 0.0 for all surfels
-                        .substances(vec![0.0])
-                        .add_surface_from_scene(&scene, 5000.0)
-                        .build();
+        let surface = build_surface(SurfaceBuilder::new())
+            .add_surface_from_scene(&scene)
+            .build();
         println!("Ok, {} surfels", surface.samples.len());
 
         self.scene = scene;
