@@ -27,7 +27,8 @@ pub struct Mesh {
 pub struct Vertex {
     pub position: Vector3<f32>,
     pub texcoords: Vector2<f32>,
-    pub material_idx: usize
+    pub material_idx: usize,
+    pub entity_idx: usize
 }
 
 pub struct Triangle {
@@ -69,9 +70,9 @@ impl Scene {
     /// Returns an iterator over the triangles in all meshes
     pub fn triangles<'a>(&'a self) -> Box<Iterator<Item = Triangle> + 'a> {
         Box::new(
-            self.entities.iter()
+            self.entities.iter().enumerate()
                 .flat_map(
-                    |e| {
+                    |(entity_idx, e)| {
                         let mesh = &e.mesh;
                         let positions = &mesh.positions;
                         let texcoords = &mesh.texcoords;
@@ -84,17 +85,20 @@ impl Scene {
                                         Vertex {
                                             position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
                                             texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
-                                            material_idx
+                                            material_idx,
+                                            entity_idx
                                         },
                                         Vertex {
                                             position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
                                             texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
-                                            material_idx
+                                            material_idx,
+                                            entity_idx
                                         },
                                         Vertex {
                                             position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
                                             texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
-                                            material_idx
+                                            material_idx,
+                                            entity_idx
                                         }
                                     ]
                                 }

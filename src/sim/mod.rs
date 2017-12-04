@@ -113,17 +113,17 @@ impl Simulation {
         let tex_width = 128;
         let tex_height = 128;
 
-        // Generate one buffer and filename per source material
-        let mut texes : Vec<_> = self.scene.materials.iter()
-            .map(|m| {
-                let filename = format!("testdata/{}-hittex.png", m.diffuse_texture);
+        // Generate one buffer and filename per entity
+        let mut texes : Vec<_> = self.scene.entities.iter().enumerate()
+            .map(|(idx, e)| {
+                let filename = format!("testdata/{}-{}-hittex.png", idx, e.name);
                 let tex_buf = image::ImageBuffer::new(tex_width, tex_height);
                 (filename, tex_buf)
             }).collect();
 
         // Draw surfels onto the textures
         for sample in &self.surface.samples {
-            let (_, ref mut tex_buf) = texes[sample.material_idx];
+            let (_, ref mut tex_buf) = texes[sample.entity_idx];
 
             let x = (sample.texcoords.x * (tex_width as f32)) as u32;
             // NOTE blender uses inversed v coordinate

@@ -15,8 +15,8 @@ pub struct Surface {
 pub struct Surfel {
     pub position: Vector3<f32>,
     pub texcoords: Vector2<f32>,
-    /// Index of the source material, as loaded from the source scene
-    pub material_idx: usize,
+    /// Index of the entity in the scene that the triangle that this surfel was generated from belongs to
+    pub entity_idx: usize,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
     #[allow(dead_code)]
     delta_straight: f32,
@@ -131,7 +131,7 @@ impl SurfaceBuilder {
         let prototype_surfel = Surfel {
             position: Vector3::new(-1.0, -1.0, -1.0),
             texcoords: Vector2::new(-1.0, -1.0),
-            material_idx: 0,
+            entity_idx: 0,
             delta_straight: self.delta_straight,
             delta_parabolic: self.delta_parabolic,
             delta_flow: self.delta_flow,
@@ -173,7 +173,7 @@ impl SurfaceBuilder {
                     let p0 = t.vertices[0].position;
                     let p1 = t.vertices[1].position;
                     let p2 = t.vertices[2].position;
-                    let material_idx = t.vertices[0].material_idx;
+                    let entity_idx = t.vertices[0].entity_idx;
                     let substances = substances.clone();
 
                     (0..surfel_count).map(move |_| {
@@ -188,7 +188,7 @@ impl SurfaceBuilder {
                         Surfel {
                             position,
                             texcoords,
-                            material_idx,
+                            entity_idx,
                             delta_straight: delta_straight,
                             delta_parabolic: delta_parabolic,
                             delta_flow: delta_flow,

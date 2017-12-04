@@ -32,24 +32,27 @@ impl Effect for Blend {
         let (tex_width, tex_height) = subject_map.dimensions();
 
         let subject_material_idx = scene.materials.iter().position(|m| m.name == self.subject_material_name).unwrap();
-        let blend_factors = blend_factors_by_maximum_local_substance_density(surface, self.substance_idx, subject_material_idx, tex_width as usize, tex_height as usize);
-        
-    	let blended_map = image::ImageBuffer::from_fn(
-            subject_map.width(), subject_map.height(),
-            |x, y| {
-                let factor = blend_factors[(y*tex_width + x) as usize];
-                subject_map.get_pixel(x, y).map2(
-                    &towards_map.get_pixel(x, y),
-                    |c0, c1| ((1.0 - factor) * (c0 as f32) + factor * (c1 as f32)) as u8
-                )
-            }
-        );
 
-        let target_filename = format!("testdata/{}-{}-weathered.png", self.subject_material_name, self.subject_material_map);
-        println!("Writing effect texture {}...", target_filename);
-        let fout = &mut File::create(target_filename).unwrap();
-        
-        image::ImageRgba8(blended_map).save(fout, image::PNG).unwrap();
+        for (entity_idx, entity) in scene.entities.iter().enumerate().filter(|&(_, e)| e.material_idx == subject_material_idx) {
+            let blend_factors = blend_factors_by_maximum_local_substance_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
+
+            let blended_map = image::ImageBuffer::from_fn(
+                subject_map.width(), subject_map.height(),
+                |x, y| {
+                    let factor = blend_factors[(y*tex_width + x) as usize];
+                    subject_map.get_pixel(x, y).map2(
+                        &towards_map.get_pixel(x, y),
+                        |c0, c1| ((1.0 - factor) * (c0 as f32) + factor * (c1 as f32)) as u8
+                    )
+                }
+            );
+
+            let target_filename = format!("testdata/{}-{}-{}-{}-weathered.png", entity_idx, entity.name, self.subject_material_name, self.subject_material_map);
+            println!("Writing effect texture {}...", target_filename);
+            let fout = &mut File::create(target_filename).unwrap();
+            
+            image::ImageRgba8(blended_map).save(fout, image::PNG).unwrap();
+        }
     }
 }
 
@@ -88,12 +91,12 @@ impl Blend {
     }
 }
 
-fn blend_factors_by_maximum_local_substance_density(surface: &Surface, substance_idx: usize, material_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
+fn blend_factors_by_maximum_local_substance_density(surface: &Surface, substance_idx: usize, entity_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
     let mut blend_factors = vec![0.0; tex_width * tex_height];
 
     // FIXME filter the samples to only use the ones that affect the right material
     for sample in &surface.samples {
-        if sample.material_idx == material_idx {
+        if sample.entity_idx == entity_idx {
             // This cuts of the fractional part, kinda like nearest filtering
             let x = (sample.texcoords.x * (tex_width as f32)) as usize;
             // NOTE blender uses inversed v coordinate
