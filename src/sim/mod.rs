@@ -110,14 +110,18 @@ impl Simulation {
         print!("Collecting interacted surfels into textures... ");
         io::stdout().flush().unwrap();
 
-        let tex_width = 128;
-        let tex_height = 128;
+        let tex_width = 1024;
+        let tex_height = 1024;
 
         // Generate one buffer and filename per entity
         let mut texes : Vec<_> = self.scene.entities.iter().enumerate()
             .map(|(idx, e)| {
                 let filename = format!("testdata/{}-{}-hittex.png", idx, e.name);
-                let tex_buf = image::ImageBuffer::new(tex_width, tex_height);
+                let tex_buf = image::ImageBuffer::from_fn(
+                    tex_width, tex_height,
+                    // Initialize with magenta so we see the texels that do not have a surfel nearby
+                    |_, _| image::Rgb([255u8, 0u8, 255u8])
+                );
                 (filename, tex_buf)
             }).collect();
 
@@ -128,7 +132,6 @@ impl Simulation {
             let x = (sample.texcoords.x * (tex_width as f32)) as u32;
             // NOTE blender uses inversed v coordinate
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
-            let intensity = (sample.substances[0] * 255.0) as u8;
 
             if x > tex_width || y > tex_height {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
@@ -137,15 +140,17 @@ impl Simulation {
                 continue;
             }
 
+            let intensity = (sample.substances[0] * 255.0) as u8;
+
             // TODO right now we overwrite when we find something brighter
             let overwrite = {
-                let previous_intensity : &image::Luma<u8> = tex_buf.get_pixel(x, y);
-                previous_intensity.data[0] < intensity
+                let previous_intensity = tex_buf.get_pixel(x, y);
+                previous_intensity.data[1] <= intensity
             };
 
             if overwrite {
                 //println!("[{},{}] = {}", x, y, intensity);
-                tex_buf.put_pixel(x, y, image::Luma([intensity]));   
+                tex_buf.put_pixel(x, y, image::Rgb([intensity, intensity, intensity]));   
             }
         }
 
@@ -157,7 +162,7 @@ impl Simulation {
             io::stdout().flush().unwrap();
 
             let ref mut tex_file = fs::File::create(tex_file).unwrap();
-            let _ = image::ImageLuma8(tex_buf).save(tex_file, image::PNG).unwrap();
+            let _ = image::ImageRgb8(tex_buf).save(tex_file, image::PNG).unwrap();
 
             println!("Ok");
         }

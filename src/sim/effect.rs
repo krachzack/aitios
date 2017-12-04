@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::path::Path;
+use std::cmp::{min, max};
 use ::geom::surf::Surface;
 use ::geom::scene::Scene;
 use ::image;
@@ -34,7 +35,7 @@ impl Effect for Blend {
         let subject_material_idx = scene.materials.iter().position(|m| m.name == self.subject_material_name).unwrap();
 
         for (entity_idx, entity) in scene.entities.iter().enumerate().filter(|&(_, e)| e.material_idx == subject_material_idx) {
-            let blend_factors = blend_factors_by_maximum_local_substance_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
+            let blend_factors = blend_factors_by_avg_local_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
 
             let blended_map = image::ImageBuffer::from_fn(
                 subject_map.width(), subject_map.height(),
@@ -122,4 +123,48 @@ fn blend_factors_by_maximum_local_substance_density(surface: &Surface, substance
     }
 
     blend_factors
+}
+
+fn blend_factors_by_avg_local_density(surface: &Surface, substance_idx: usize, entity_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
+    substance_density_bins(surface, substance_idx, entity_idx, tex_width, tex_height)
+        .iter()
+        .map(|b| {
+            if b.is_empty() {
+                0.0
+            } else {
+                // local avg
+                let avg = b.iter().sum::<f32>() / (b.len() as f32);
+                if avg < 0.0 { 0.0 }
+                else if avg > 1.0 { 1.0 }
+                else { avg }
+            }
+        })
+        .collect()
+}
+
+/// Collects all surfels in proximity of a texel into an according bin of surfels
+fn substance_density_bins(surface: &Surface, substance_idx: usize, entity_idx: usize, bin_count_x: usize, bin_count_y: usize) -> Vec<Vec<f32>> {
+    let mut sample_bins = vec![Vec::new(); bin_count_x * bin_count_y];
+
+    // FIXME filter the samples to only use the ones that affect the right material
+    for sample in &surface.samples {
+        if sample.entity_idx == entity_idx {
+            // This cuts of the fractional part, kinda like nearest filtering
+            let x = (sample.texcoords.x * (bin_count_x as f32)) as usize;
+            // NOTE we use y facing down for serializing textures, but the v coordinate is typically facing up
+            let y = ((1.0 - sample.texcoords.y) * (bin_count_y as f32)) as usize;
+
+            if x > bin_count_x || y > bin_count_y {
+                // Interpolation of texture coordinates can lead to degenerate uv coordinates
+                // e.g. < 0 or > 1
+                // In such cases, do not try to save the surfel but ingore it
+                println!("WARNING: Degenerate surfel UVs: [{}, {}]", sample.texcoords.x, 1.0 - sample.texcoords.y);
+                continue;
+            }
+
+            sample_bins[y*bin_count_x + x].push(sample.substances[substance_idx]);
+        }
+    }
+
+    sample_bins
 }
