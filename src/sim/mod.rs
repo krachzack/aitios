@@ -130,7 +130,7 @@ impl Simulation {
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
             let intensity = (sample.substances[0] * 255.0) as u8;
 
-            if x > tex_width || y > tex_height {
+            if x >= tex_width || y >= tex_height {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
                 // e.g. < 0 or > 1
                 // In such cases, do not try to save the surfel but ingore it
@@ -145,7 +145,7 @@ impl Simulation {
 
             if overwrite {
                 //println!("[{},{}] = {}", x, y, intensity);
-                tex_buf.put_pixel(x, y, image::Luma([intensity]));   
+                tex_buf.put_pixel(x, y, image::Luma([intensity]));
             }
         }
 

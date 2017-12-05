@@ -50,7 +50,7 @@ impl Effect for Blend {
             let target_filename = format!("testdata/{}-{}-{}-{}-weathered.png", entity_idx, entity.name, self.subject_material_name, self.subject_material_map);
             println!("Writing effect texture {}...", target_filename);
             let fout = &mut File::create(target_filename).unwrap();
-            
+
             image::ImageRgba8(blended_map).save(fout, image::PNG).unwrap();
         }
     }
@@ -68,7 +68,7 @@ impl Blend {
 
     fn load_subject_map(&self, scene: &Scene) -> image::DynamicImage {
         let texture_base_path = "testdata/";
-        
+
         // Panics if subject material is not there, this is a little late for that check
         let subject_material_idx = scene.materials.iter().position(|m| m.name == self.subject_material_name).unwrap();
         let subject_material = &scene.materials[subject_material_idx];
@@ -102,10 +102,11 @@ fn blend_factors_by_maximum_local_substance_density(surface: &Surface, substance
             // NOTE blender uses inversed v coordinate
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as usize;
 
-            if x > tex_width || y > tex_height {
+            if x >= tex_width || y >= tex_height {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
                 // e.g. < 0 or > 1
                 // In such cases, do not try to save the surfel but ingore it
+                // Alternatively, we could use just the fractional part (like GL_REPEAT)
                 println!("Degenerate surfel UVs: [{}, {}]", sample.texcoords.x, 1.0 - sample.texcoords.y);
                 continue;
             }
