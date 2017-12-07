@@ -133,7 +133,7 @@ impl Simulation {
             // NOTE blender uses inversed v coordinate
             let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as u32;
 
-            if x > tex_width || y > tex_height {
+            if x >= tex_width || y >= tex_height {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
                 // e.g. < 0 or > 1
                 // In such cases, do not try to save the surfel but ingore it

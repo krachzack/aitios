@@ -1,5 +1,4 @@
 /target/
 **/*.rs.bk
 .DS_Store
-/testdata/joined-pipes-floorless.obj.surfels.obj
-/testdata/hits.obj
+/testdata
