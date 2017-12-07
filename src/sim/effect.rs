@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::path::Path;
-use std::cmp::{min, max};
 use ::geom::surf::Surface;
 use ::geom::scene::Scene;
 use ::image;
