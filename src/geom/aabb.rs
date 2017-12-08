@@ -68,3 +68,46 @@ impl Aabb {
             )
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use std::iter;
+
+    #[test]
+    fn test_aabb_from_points_empty() {
+        let aabb = Aabb::from_points(iter::empty());
+
+        assert_eq!(aabb.min.x, INFINITY, "Expected infinite AABB from empty points");
+        assert_eq!(aabb.min.y, INFINITY, "Expected infinite AABB from empty points");
+        assert_eq!(aabb.min.z, INFINITY, "Expected infinite AABB from empty points");
+
+        assert_eq!(aabb.max.x, NEG_INFINITY, "Expected infinite AABB from empty points");
+        assert_eq!(aabb.max.y, NEG_INFINITY, "Expected infinite AABB from empty points");
+        assert_eq!(aabb.max.z, NEG_INFINITY, "Expected infinite AABB from empty points");
+    }
+
+    #[test]
+    fn test_aabb_from_single_point() {
+        let point = Vector3::new(1.0, 2.0, 3.0);
+        let aabb = Aabb::from_points(iter::once(point));
+
+        assert_eq!(aabb.min, point, "Built AABB from single point {:?} and expected min to be equal, but was {:?}", point, aabb.min);
+        assert_eq!(aabb.max, point, "Built AABB from single point {:?} and expected max to be equal, but was {:?}", point, aabb.max);
+    }
+
+    #[test]
+    fn test_aabb_from_points_triangle() {
+        let triangle : Vec<Vector3<f32>> = vec![
+            Vector3::new(-0.5, -0.5, 1.0),
+            Vector3::new(0.5, -0.5, 1.0),
+            Vector3::new(0.0, 0.5, -1.0)
+        ];
+
+        let aabb = Aabb::from_points(triangle.iter().cloned());
+
+        assert_eq!(aabb.min, Vector3::new(-0.5, -0.5, -1.0));
+        assert_eq!(aabb.max, Vector3::new(0.5, 0.5, 1.0));
+    }
+}
