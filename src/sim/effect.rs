@@ -91,40 +91,7 @@ impl Blend {
     }
 }
 
-fn blend_factors_by_maximum_local_substance_density(surface: &Surface, substance_idx: usize, entity_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
-    let mut blend_factors = vec![0.0; tex_width * tex_height];
-
-    // FIXME filter the samples to only use the ones that affect the right material
-    for sample in &surface.samples {
-        if sample.entity_idx == entity_idx {
-            // This cuts of the fractional part, kinda like nearest filtering
-            let x = (sample.texcoords.x * (tex_width as f32)) as usize;
-            // NOTE blender uses inversed v coordinate
-            let y = ((1.0 - sample.texcoords.y) * (tex_height as f32)) as usize;
-
-            if x >= tex_width || y >= tex_height {
-                // Interpolation of texture coordinates can lead to degenerate uv coordinates
-                // e.g. < 0 or > 1
-                // In such cases, do not try to save the surfel but ingore it
-                // Alternatively, we could use just the fractional part (like GL_REPEAT)
-                println!("Degenerate surfel UVs: [{}, {}]", sample.texcoords.x, 1.0 - sample.texcoords.y);
-                continue;
-            }
-
-            let sample_factor = sample.substances[substance_idx];
-            let existing_factor = &mut blend_factors[y*tex_width + x];
-
-            // Only update if the found substance density greater than the last
-            // sample that maps to the same texel
-            if sample_factor > *existing_factor {
-                *existing_factor = sample_factor;
-            }
-        }
-    }
-
-    blend_factors
-}
-
+// TODO maybe use sum, not avg?
 fn blend_factors_by_avg_local_density(surface: &Surface, substance_idx: usize, entity_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
     substance_density_bins(surface, substance_idx, entity_idx, tex_width, tex_height)
         .iter()
