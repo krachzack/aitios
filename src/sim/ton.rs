@@ -124,8 +124,8 @@ impl TonSourceBuilder {
         self
     }
 
-    pub fn point_shaped(mut self, position: &Vector3<f32>) -> TonSourceBuilder {
-        self.shape = Shape::Point { position: position.clone() };
+    pub fn point_shaped(mut self, pos_x: f32, pos_y: f32, pos_z: f32) -> TonSourceBuilder {
+        self.shape = Shape::Point { position: Vector3::new(pos_x, pos_y, pos_z) };
         self
     }
 
