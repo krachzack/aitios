@@ -1,8 +1,8 @@
 use std::f32::{INFINITY, NEG_INFINITY};
 use ::cgmath::Vector3;
-use ::cgmath::prelude::Zero;
 
 /// An axis-aligned bounding box in 3D
+#[derive(Debug)]
 pub struct Aabb {
     pub min: Vector3<f32>,
     pub max: Vector3<f32>
@@ -67,6 +67,25 @@ impl Aabb {
                 }
             )
     }
+
+    fn is_point_outside(&self, point: Vector3<f32>) -> bool {
+        point.x < self.min.x || point.x > self.max.x ||
+            point.y < self.min.y || point.y > self.max.y ||
+            point.z < self.min.z || point.z > self.max.z
+    }
+
+    fn is_point_inside(&self, point: Vector3<f32>) -> bool {
+        !self.is_point_outside(point)
+    }
+
+    pub fn is_aabb_inside(&self, other: &Aabb) -> bool {
+        self.is_point_inside(other.min) && self.is_point_inside(other.max)
+    }
+
+    pub fn volume(&self) -> f32 {
+        let dims = self.max - self.min;
+        dims.x * dims.y * dims.z
+    }
 }
 
 #[cfg(test)]
@@ -107,5 +126,32 @@ mod test {
 
         assert_eq!(aabb.min, Vector3::new(-0.5, -0.5, -1.0));
         assert_eq!(aabb.max, Vector3::new(0.5, 0.5, 1.0));
+    }
+
+    #[test]
+    fn test_inside() {
+        let aabb = Aabb::from_points(vec![
+            Vector3::new(-0.5, -0.5, 1.0),
+            Vector3::new(0.5, -0.5, 1.0),
+            Vector3::new(0.0, 0.5, -1.0)
+        ]);
+
+        let point = Vector3::new(0.0, 0.0, 0.0);
+        assert!(aabb.is_point_inside(point));
+
+        let point = Vector3::new(10.0, 0.0, 0.0);
+        assert!(!aabb.is_point_inside(point));
+
+        let other_aabb = Aabb {
+            min: Vector3::new(-0.1, -0.1, -0.1),
+            max: Vector3::new(0.1, 0.1, 0.1),
+        };
+        assert!(aabb.is_aabb_inside(&other_aabb));
+
+        let other_aabb = Aabb {
+            min: Vector3::new(99.9, -0.1, -0.1),
+            max: Vector3::new(100.1, 0.1, 0.1),
+        };
+        assert!(!aabb.is_aabb_inside(&other_aabb));
     }
 }

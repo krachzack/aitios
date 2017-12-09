@@ -3,13 +3,61 @@ use super::spatial::Spatial;
 use super::aabb::Aabb;
 
 use std::iter::FromIterator;
+use std::mem;
 
+use ::cgmath::Vector3;
+use ::cgmath::prelude::Zero;
+
+#[derive(Debug)]
 pub struct Octree<T>
     where T: Spatial
 {
     bounds: Aabb,
     data: Vec<T>,
     children: [Option<Box<Octree<T>>>; 8]
+}
+
+fn octants(aabb: &Aabb) -> [Aabb; 8] {
+    let &Aabb { min, max } = aabb;
+    let dims = max - min;
+    let center = min + 0.5 * dims;
+
+    [
+        // 0: left bottom back
+        Aabb { min: min, max: center },
+        // 1: right bottom back
+        Aabb {
+            min: Vector3::new(center.x, min.y, min.z),
+            max: Vector3::new(max.x, center.y, center.z)
+        },
+        // 2: right bottom front
+        Aabb {
+            min: Vector3::new(center.x, min.y, center.z),
+            max: Vector3::new(max.x, center.y, max.z)
+        },
+        // 3: left bottom front
+        Aabb {
+            min: Vector3::new(min.x, min.y, center.z),
+            max: Vector3::new(center.x, center.y, max.z)
+        },
+        // 4: left top back
+        Aabb {
+            min: Vector3::new(min.x, center.y, min.z),
+            max: Vector3::new(center.x, max.y, center.z)
+        },
+        // 5: right top back
+        Aabb {
+            min: Vector3::new(center.x, center.y, min.z),
+            max: Vector3::new(max.x, max.y, center.z)
+        },
+        // 6: right top front
+        Aabb { min: center, max: max },
+        // 7: left top front
+        Aabb {
+            min: Vector3::new(min.x, center.y, center.z),
+            max: Vector3::new(center.x, max.y, max.z)
+        }
+    ]
 }
 
 impl<T> Octree<T>
@@ -31,6 +79,85 @@ impl<T> Octree<T>
 
         own_len + child_len
     }
+
+    #[cfg(test)]
+    fn depth(&self) -> usize {
+        1 + self.children.iter()
+            .map(|c| match c {
+                &Some(ref c) => c.depth(),
+                _ => 0
+            })
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn from_vec_with_bounds(mut own_data: Vec<T>, own_bounds: Aabb, min_node_volume: f32) -> Octree<T> {
+        assert!(min_node_volume > 0.0, "When building octree, minimum node volume has to be > 0");
+
+        let mut children = [
+            None, None, None, None,
+            None, None, None, None
+        ];
+
+        // Continue subdividing as long as splitting makes sense and the octants are larger than 0.1 cubic units
+        if own_data.len() > 1 && own_bounds.volume() >= min_node_volume {
+            let mut child_data : [Vec<T>; 8] = [
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new()
+            ];
+            let mut child_octants = octants(&own_bounds);
+
+            let src_data = own_data;
+            own_data = Vec::new();
+
+            for ent in src_data {
+                // Will become None is is completely inside child bounds, otherwise stays Some(ent)
+                let mut ent = Some(ent);
+
+                for (ref mut data, octant) in child_data.iter_mut().zip(child_octants.iter()) {
+                    let iter_ent = ent.take().unwrap();
+                    if octant.is_aabb_inside(&iter_ent.bounds()) {
+                        data.push(iter_ent);
+                        break;
+                    } else {
+                        ent = Some(iter_ent);
+                    }
+                }
+
+                if let Some(ent) = ent {
+                    own_data.push(ent);
+                }
+            }
+
+            for i in 0..children.len() {
+                if child_data[i].len() > 0 {
+                    children[i] = Some(
+                        Box::new(
+                            Self::from_vec_with_bounds(
+                                // Move values out of arrays and replace them with unit values
+                                mem::replace(&mut child_data[i], vec![]),
+                                mem::replace(&mut child_octants[i], Aabb { min: Vector3::zero(), max: Vector3::zero() }),
+                                min_node_volume
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        Octree {
+            bounds: own_bounds,
+            data: own_data,
+            children
+        }
+    }
 }
 
 impl<T> FromIterator<T> for Octree<T>
@@ -40,18 +167,14 @@ impl<T> FromIterator<T> for Octree<T>
     fn from_iter<I>(entities: I) -> Octree<T>
         where I: IntoIterator<Item = T>
     {
-        let data : Vec<T> = entities.into_iter().collect();
-
-        let bounds = Aabb::union(
-            data.iter()
+        let own_data : Vec<T> = entities.into_iter().collect();
+        let own_bounds = Aabb::union(
+            own_data.iter()
                 .map(|e| e.bounds())
         );
 
-        Octree {
-            bounds,
-            data,
-            children: [None, None, None, None, None, None, None, None]
-        }
+        let min_node_volume = 0.1 * (own_bounds.max.x - own_bounds.min.x);
+        Octree::from_vec_with_bounds(own_data, own_bounds, min_node_volume)
     }
 }
 
@@ -62,21 +185,64 @@ mod test {
     use ::cgmath::Vector3;
 
     #[test]
-    fn test_octree_count() {
+    fn test_subdivision() {
+        let whole_world = Aabb {
+            min: Vector3::new(-10.0, -10.0, -10.0),
+            max: Vector3::new(10.0, 10.0, 10.0)
+        };
+
+        let around_origin = Aabb {
+            min: Vector3::new(-0.1, -0.1, -0.1),
+            max: Vector3::new(0.1, 0.1, 0.1)
+        };
+
+        let left_top_front1 = Aabb {
+            min: Vector3::new(4.9, 4.9, 4.9),
+            max: Vector3::new(5.1, 5.1, 5.1),
+        };
+
+        let left_top_front2 = Aabb {
+            min: Vector3::new(4.9, 4.9, 4.9),
+            max: Vector3::new(5.1, 5.1, 5.1),
+        };
+
+        let left_top_front3 = Aabb {
+            min: Vector3::new(4.9, 4.9, 4.9),
+            max: Vector3::new(5.1, 5.1, 5.1),
+        };
+
         let tree : Octree<Aabb> = vec![
-            // one around the origin
-            Aabb {
-                min: Vector3::new(-0.1, -0.1, -0.1),
-                max: Vector3::new(0.1, 0.1, 0.1)
-            },
-            // One large above and translated towards Z
-            Aabb {
-                min: Vector3::new(-0.3, 1.0, 1.0),
-                max: Vector3::new(0.3, 1.6, 2.0)
-            }
+            whole_world,
+            around_origin,
+            left_top_front1,
+            left_top_front2,
+            left_top_front3
         ].into_iter().collect();
 
-        assert_eq!(tree.entity_count(), 2);
-        assert_eq!(tree.node_count(), 1);
+        assert_eq!(tree.depth(), 2);
+        assert_eq!(tree.entity_count(), 5);
+
+        assert!(
+            tree.data.len() == 2 &&
+            tree.data.iter().any(|e| e.min.x == -10.0 && e.min.y == -10.0 && e.min.z == -10.0 &&
+                                     e.max.x == 10.0 && e.max.y == 10.0 && e.max.z == 10.0) &&
+            tree.data.iter().any(|e| e.min.x == -0.1 && e.min.y == -0.1 && e.min.z == -0.1 &&
+                                     e.max.x == 0.1 && e.max.y == 0.1 && e.max.z == 0.1),
+            "Root node should have whole_world and around_origin, but had data {:?}",
+            tree.data.iter()
+        );
+
+        assert!(
+            tree.children.iter()
+                .any(|c| match c {
+                    &Some(ref c) =>
+                        c.data.len() == 3 &&
+                        c.data.iter().all(|e| e.min.x == 4.9 && e.min.y == 4.9 && e.min.z == 4.9 &&
+                                              e.max.x == 5.1 && e.max.y == 5.1 && e.max.z == 5.1),
+                    &None => false
+                }),
+            "Expected a direct descendant of the root node to contain three left_top_front, but actual children were: {:?}",
+            tree.children
+        )
     }
 }
