@@ -1,3 +1,6 @@
+//! Contains functionality to load scenes from OBJ files and to iterate
+//!
+//!
 
 use std::path::Path;
 
@@ -28,6 +31,7 @@ pub struct Mesh {
     pub texcoords: Vec<f32>
 }
 
+#[derive(Debug)]
 pub struct Vertex {
     pub position: Vector3<f32>,
     pub texcoords: Vector2<f32>,
@@ -35,6 +39,7 @@ pub struct Vertex {
     pub entity_idx: usize
 }
 
+#[derive(Debug)]
 pub struct Triangle {
     pub vertices: [Vertex; 3]
 }

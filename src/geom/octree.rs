@@ -187,6 +187,7 @@ mod test {
 
     use super::*;
     use ::cgmath::Vector3;
+    use super::super::scene::{Scene, Triangle};
 
     #[test]
     fn test_subdivision() {
@@ -249,5 +250,24 @@ mod test {
             "Expected a direct descendant of the root node to contain three left_top_front, but actual children were: {:?}",
             tree.children
         )
+    }
+
+    #[test]
+    fn test_large_tree() {
+        let scene = Scene::load_from_file("testdata/plastic-pipe.obj");
+        let tree : Octree<Triangle> = scene.triangles().collect();
+
+        let tree_triangle_count = tree.entity_count();
+
+        assert_eq!(scene.triangle_count(), tree_triangle_count);
+
+        assert!(
+            tree.node_count() < (tree_triangle_count / 2),
+            "Number of nodes should be significantly smaller than number of triangles, but triangle count was: {} and node count was: {}",
+            tree_triangle_count,
+            tree.node_count()
+        );
+
+        assert!(tree.depth() >= 3, "The tree should be at least 3 levels deep, but was {}", tree.depth());
     }
 }
