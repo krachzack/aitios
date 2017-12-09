@@ -2,7 +2,7 @@
 use super::spatial::Spatial;
 use super::aabb::Aabb;
 
-use std::cmp::PartialOrd;
+use std::iter::FromIterator;
 
 pub struct Octree<T>
     where T: Spatial
@@ -13,11 +13,32 @@ pub struct Octree<T>
 }
 
 impl<T> Octree<T>
-    where T: Spatial
+    where T : Spatial
 {
-    // Builds an octree from a given draining iterator over something Spatial
-    pub fn build<E>(entities: E) -> Octree<T>
-        where E: IntoIterator<Item = T>
+    #[cfg(test)]
+    fn node_count(&self) -> usize {
+        1 + self.children.iter()
+            .filter_map(|c| c.as_ref().map(|c| c.node_count()))
+            .sum::<usize>()
+    }
+
+    #[cfg(test)]
+    fn entity_count(&self) -> usize {
+        let own_len = self.data.len();
+        let child_len : usize = self.children.iter()
+            .filter_map(|c| c.as_ref().map(|c| c.entity_count()))
+            .sum();
+
+        own_len + child_len
+    }
+}
+
+impl<T> FromIterator<T> for Octree<T>
+    where T : Spatial
+{
+    /// Builds an octree from a given draining iterator over something Spatial
+    fn from_iter<I>(entities: I) -> Octree<T>
+        where I: IntoIterator<Item = T>
     {
         let data : Vec<T> = entities.into_iter().collect();
 
@@ -32,15 +53,6 @@ impl<T> Octree<T>
             children: [None, None, None, None, None, None, None, None]
         }
     }
-
-    fn count(&self) -> usize {
-        let own_len = self.data.len();
-        let child_len : usize = self.children.iter()
-            .filter_map(|c| c.as_ref().map(|c| c.count()))
-            .sum();
-
-        own_len + child_len
-    }
 }
 
 #[cfg(test)]
@@ -51,7 +63,7 @@ mod test {
 
     #[test]
     fn test_octree_count() {
-        let tree = Octree::build(vec![
+        let tree : Octree<Aabb> = vec![
             // one around the origin
             Aabb {
                 min: Vector3::new(-0.1, -0.1, -0.1),
@@ -62,8 +74,9 @@ mod test {
                 min: Vector3::new(-0.3, 1.0, 1.0),
                 max: Vector3::new(0.3, 1.6, 2.0)
             }
-        ]);
+        ].into_iter().collect();
 
-        assert_eq!(tree.count(), 2);
+        assert_eq!(tree.entity_count(), 2);
+        assert_eq!(tree.node_count(), 1);
     }
 }
