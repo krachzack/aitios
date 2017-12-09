@@ -1,9 +1,13 @@
 
 use std::path::Path;
+
 use ::tobj;
-use ::geom::tri;
 use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
+
+use super::tri;
+use super::spatial::Spatial;
+use super::aabb::Aabb;
 
 pub struct Scene {
     pub entities: Vec<Entity>,
@@ -33,6 +37,15 @@ pub struct Vertex {
 
 pub struct Triangle {
     pub vertices: [Vertex; 3]
+}
+
+impl Spatial for Triangle {
+    fn bounds(&self) -> Aabb {
+        Aabb::from_points(
+            self.vertices.iter()
+                .map(|v| v.position)
+        )
+    }
 }
 
 impl Scene {
@@ -130,7 +143,7 @@ impl Scene {
                 |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
             )
             .min_by(|i0, i1|
-                // We assume no NaN or infinities, that's why whe need to unwrap 
+                // We assume no NaN or infinities, that's why whe need to unwrap
                 ray_origin.distance2(*i0).partial_cmp(&ray_origin.distance2(*i1)).unwrap()
             )
     }
@@ -186,7 +199,7 @@ impl Triangle {
     pub fn texcoords_at(&self, p: Vector3<f32>) -> Vector2<f32>{
         let weights = self.barycentric_at(p);
         let coords = self.vertices.iter().map(|v| v.texcoords);
-        
+
         weights.iter()
             .zip(coords)
             .map(|(w, c)| *w * c)
