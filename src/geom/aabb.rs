@@ -1,4 +1,5 @@
 use std::f32::{INFINITY, NEG_INFINITY};
+
 use ::cgmath::Vector3;
 
 /// An axis-aligned bounding box in 3D

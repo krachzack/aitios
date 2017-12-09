@@ -1,12 +1,13 @@
-
-use super::spatial::Spatial;
-use super::aabb::Aabb;
+//! Implements octrees composed of objects in 3D space
 
 use std::iter::FromIterator;
 use std::mem;
 
 use ::cgmath::Vector3;
 use ::cgmath::prelude::Zero;
+
+use super::spatial::Spatial;
+use super::aabb::Aabb;
 
 #[derive(Debug)]
 pub struct Octree<T>

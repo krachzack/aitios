@@ -1,10 +1,12 @@
 
 use std::io;
 use std::cmp::Ordering::Equal;
+
 use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
 use ::rand;
-use ::geom::scene::{Scene};
+
+use super::scene::Scene;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
