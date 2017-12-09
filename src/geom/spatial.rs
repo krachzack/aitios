@@ -6,4 +6,8 @@ pub trait Spatial {
     fn bounds(&self) -> Aabb;
 }
 
-
+impl Spatial for Aabb {
+    fn bounds(&self) -> Aabb {
+        Aabb { ..*self }
+    }
+}

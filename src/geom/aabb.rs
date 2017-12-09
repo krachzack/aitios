@@ -99,13 +99,11 @@ mod test {
 
     #[test]
     fn test_aabb_from_points_triangle() {
-        let triangle : Vec<Vector3<f32>> = vec![
+        let aabb = Aabb::from_points(vec![
             Vector3::new(-0.5, -0.5, 1.0),
             Vector3::new(0.5, -0.5, 1.0),
             Vector3::new(0.0, 0.5, -1.0)
-        ];
-
-        let aabb = Aabb::from_points(triangle.iter().cloned());
+        ]);
 
         assert_eq!(aabb.min, Vector3::new(-0.5, -0.5, -1.0));
         assert_eq!(aabb.max, Vector3::new(0.5, 0.5, 1.0));

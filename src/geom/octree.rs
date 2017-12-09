@@ -33,4 +33,37 @@ impl<T> Octree<T>
         }
     }
 
+    fn count(&self) -> usize {
+        let own_len = self.data.len();
+        let child_len : usize = self.children.iter()
+            .filter_map(|c| c.as_ref().map(|c| c.count()))
+            .sum();
+
+        own_len + child_len
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use ::cgmath::Vector3;
+
+    #[test]
+    fn test_octree_count() {
+        let tree = Octree::build(vec![
+            // one around the origin
+            Aabb {
+                min: Vector3::new(-0.1, -0.1, -0.1),
+                max: Vector3::new(0.1, 0.1, 0.1)
+            },
+            // One large above and translated towards Z
+            Aabb {
+                min: Vector3::new(-0.3, 1.0, 1.0),
+                max: Vector3::new(0.3, 1.6, 2.0)
+            }
+        ]);
+
+        assert_eq!(tree.count(), 2);
+    }
 }
