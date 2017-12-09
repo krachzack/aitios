@@ -118,7 +118,10 @@ impl<T> Octree<T>
             own_data = Vec::new();
 
             for ent in src_data {
-                // Will become None is is completely inside child bounds, otherwise stays Some(ent)
+                // If ent is completely inside aabb of child octant, it gets moved to the child
+                // and set to None here
+                // If no move ocurred, stays Some(ent) and will instead be moved to own_data
+
                 let mut ent = Some(ent);
 
                 for (ref mut data, octant) in child_data.iter_mut().zip(child_octants.iter()) {
@@ -221,6 +224,7 @@ mod test {
 
         assert_eq!(tree.depth(), 2);
         assert_eq!(tree.entity_count(), 5);
+        assert_eq!(tree.node_count(), 2);
 
         assert!(
             tree.data.len() == 2 &&
