@@ -75,7 +75,7 @@ impl Aabb {
             point.z < self.min.z || point.z > self.max.z
     }
 
-    fn is_point_inside(&self, point: Vector3<f32>) -> bool {
+    pub fn is_point_inside(&self, point: Vector3<f32>) -> bool {
         !self.is_point_outside(point)
     }
 
@@ -83,9 +83,70 @@ impl Aabb {
         self.is_point_inside(other.min) && self.is_point_inside(other.max)
     }
 
+    pub fn intersects_ray(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> bool {
+        match self.line_intersection_min_max_parameters(ray_origin, ray_direction) {
+            // If one is > 0, ray originates inside, if two are > 0 ray intersects from the outside
+            Some((min_t, max_t)) => min_t > 0.0 || max_t > 0.0,
+            None => false
+        }
+    }
+
     pub fn volume(&self) -> f32 {
         let dims = self.max - self.min;
         dims.x * dims.y * dims.z
+    }
+
+    /// Finds the smallest and the highest value for t in the line equation `line_origin = t * line_dir` where the given line
+    /// intersects with the given axis-aligned bounding box. Since a line and not a ray is given, negative values for t are
+    /// also considered an intersection.
+    ///
+    /// The line is specified with the given origin and direction.
+    ///
+    /// If the ray does not intersect the aabb, None is returned.
+    ///
+    /// See: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+    fn line_intersection_min_max_parameters(&self, line_origin: Vector3<f32>, line_dir: Vector3<f32>) -> Option<(f32, f32)> {
+        let line_dir_inv = 1.0 / line_dir;
+        let line_sign = [
+            if line_dir_inv.x < 0.0 { 1 } else { 0 },
+            if line_dir_inv.y < 0.0 { 1 } else { 0 },
+            if line_dir_inv.z < 0.0 { 1 } else { 0 }
+        ];
+        let bounds = [
+            self.min,
+            self.max
+        ];
+ 
+        let mut tmin = (bounds[line_sign[0]].x - line_origin.x) * line_dir_inv.x;
+        let mut tmax = (bounds[1-line_sign[0]].x - line_origin.x) * line_dir_inv.x;
+
+        let tymin = (bounds[line_sign[1]].y - line_origin.y) * line_dir_inv.y;
+        let tymax = (bounds[1-line_sign[1]].y - line_origin.y) * line_dir_inv.y;
+    
+        if (tmin > tymax) || (tymin > tmax) {
+            return None;
+        }
+        if tymin > tmin {
+            tmin = tymin;
+        }
+        if tymax < tmax {
+            tmax = tymax;
+        }
+
+        let tzmin = (bounds[line_sign[2]].z - line_origin.z) * line_dir_inv.z;
+        let tzmax = (bounds[1-line_sign[2]].z - line_origin.z) * line_dir_inv.z;
+    
+        if (tmin > tzmax) || (tzmin > tmax) {
+            return None;
+        }
+        if tzmin > tmin {
+            tmin = tzmin;
+        }
+        if tzmax < tmax {
+            tmax = tzmax;
+        }
+
+        Some((tmin, tmax))
     }
 }
 
@@ -154,5 +215,90 @@ mod test {
             max: Vector3::new(100.1, 0.1, 0.1),
         };
         assert!(!aabb.is_aabb_inside(&other_aabb));
+    }
+
+    #[test]
+    fn test_aabb_line_intersection() {
+        // Given one aabb around the origin
+        let aabb = Aabb::from_points(vec![
+            Vector3::new(-0.5, -0.5, 1.0),
+            Vector3::new(0.5, -0.5, 1.0),
+            Vector3::new(0.0, 0.5, -1.0)
+        ]);
+
+        // Line above the origin, with direction facing up, hit
+        let line_origin = Vector3::new(0.0, 10.0, 0.0);
+        let line_direction = Vector3::new(0.0, -1.0, 0.0);
+        let intersection_params = aabb.line_intersection_min_max_parameters(line_origin, line_direction);
+        assert!(intersection_params.is_some(), "Line above the origin, with direction facing up, should hit an aabb below");
+        let (min_t, max_t) = intersection_params.unwrap();
+        assert!(min_t > 0.0 && max_t > 0.0 && max_t > min_t);
+
+        // Line above the origin, with direction facing down should also hit an aabb below, this is not a ray
+        let line_origin = Vector3::new(0.0, 10.0, 0.0);
+        let line_direction = Vector3::new(0.0, 1.0, 0.0);
+        let intersection_params = aabb.line_intersection_min_max_parameters(line_origin, line_direction);
+        assert!(intersection_params.is_some(), "Line above the origin, with direction facing down should also hit an aabb below, this is not a ray");
+        let (min_t, max_t) = intersection_params.unwrap();
+        assert!(min_t < 0.0 && max_t < 0.0 && max_t > min_t);
+
+        // Line above the origin, facing right, should miss
+        let line_origin = Vector3::new(0.0, 10.0, 0.0);
+        let line_direction = Vector3::new(1.0, 0.0, 0.0);
+        let intersection_params = aabb.line_intersection_min_max_parameters(line_origin, line_direction);
+        assert!(intersection_params.is_none(), "Line above the origin, facing right, should miss");
+
+        // Line above the origin, facing towards Z, should miss
+        let line_origin = Vector3::new(0.0, 10.0, 0.0);
+        let line_direction = Vector3::new(0.0, 0.0, 1.0);
+        let intersection_params = aabb.line_intersection_min_max_parameters(line_origin, line_direction);
+        assert!(intersection_params.is_none(), "Line above the origin, facing right, should miss");
+
+    }
+
+    #[test]
+    fn test_aabb_intersects_ray_inside() {
+        // Given one aabb around the origin
+        let aabb = Aabb::from_points(vec![
+            Vector3::new(-0.5, -0.5, -1.0),
+            Vector3::new(0.5, 0.5, 1.0)
+        ]);
+
+        let ray_origin = Vector3::new(0.0, 0.0, 0.0);
+        let ray_direction = Vector3::new(1.0, 1.0, 0.0);
+        assert!(aabb.is_point_inside(ray_origin));
+        assert!(aabb.intersects_ray(ray_origin, ray_direction), "No matter the direction, a ray originating inside an aabb should always hit it");
+        let ray_direction = Vector3::new(-1.0, 0.0, 1.0);
+        assert!(aabb.is_point_inside(ray_origin));
+        assert!(aabb.intersects_ray(ray_origin, ray_direction), "No matter the direction, a ray originating inside an aabb should always hit it");
+        let ray_direction = Vector3::new(0.0, 1.0, 1.0);
+        assert!(aabb.is_point_inside(ray_origin));
+        assert!(aabb.intersects_ray(ray_origin, ray_direction), "No matter the direction, a ray originating inside an aabb should always hit it");
+    }
+
+    #[test]
+    fn test_aabb_intersects_ray_hit_from_outside() {
+        // Given one aabb around the origin
+        let aabb = Aabb::from_points(vec![
+            Vector3::new(-0.5, -0.5, -1.0),
+            Vector3::new(0.5, 0.5, 1.0)
+        ]);
+
+        let ray_origin = Vector3::new(10.0, 0.0, 0.0);
+        let ray_direction = Vector3::new(-1.0, 0.0, 0.0);
+        assert!(aabb.intersects_ray(ray_origin, ray_direction), "Ray shot from the right to an abb on the left should hit");
+    }
+
+    #[test]
+    fn test_aabb_intersects_miss() {
+        // Given one aabb around the origin
+        let aabb = Aabb::from_points(vec![
+            Vector3::new(-0.5, -0.5, -1.0),
+            Vector3::new(0.5, 0.5, 1.0)
+        ]);
+
+        let ray_origin = Vector3::new(10.0, 0.0, 0.0);
+        let ray_direction = Vector3::new(1.0, 0.0, 0.0);
+        assert!(!aabb.intersects_ray(ray_origin, ray_direction), "Ray shot from the right to the right should miss an aabb on the left");
     }
 }
