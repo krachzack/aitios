@@ -7,3 +7,4 @@ pub mod scene;
 pub mod spatial;
 pub mod surf;
 pub mod tri;
+pub mod vtx;
