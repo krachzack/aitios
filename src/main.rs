@@ -1,8 +1,8 @@
 extern crate aitios;
 
 fn main() {
-    let model_obj_path = "testdata/ape_room.obj";
-    
+    let model_obj_path = "testdata/plastic-pipe.obj";
+
     aitios::SimulationBuilder::new()
         .scene(
             model_obj_path,

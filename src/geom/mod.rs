@@ -2,6 +2,7 @@
 //! Among these are spatial datastructures, scenes and surface models
 
 pub mod aabb;
+pub mod intersect;
 pub mod octree;
 pub mod scene;
 pub mod spatial;

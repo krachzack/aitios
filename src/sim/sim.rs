@@ -47,7 +47,7 @@ impl Simulation {
         let initial_hits : Vec<_> = self.sources.iter()
             .flat_map(|src| src.emit())
             .filter_map(|(ton, ray_origin, ray_direction)|
-                self.scene.intersect(&ray_origin, &ray_direction).map(|p| (ton, p) )
+                self.scene.intersect(ray_origin, ray_direction).map(|p| (ton, p) )
             ).collect();
         println!("Ok, took {} minutes", before.elapsed().as_secs() / 60);
 
@@ -152,7 +152,7 @@ impl Simulation {
 
             if overwrite {
                 //println!("[{},{}] = {}", x, y, intensity);
-                tex_buf.put_pixel(x, y, image::Rgb([intensity, intensity, intensity]));   
+                tex_buf.put_pixel(x, y, image::Rgb([intensity, intensity, intensity]));
             }
         }
 

@@ -6,12 +6,10 @@ use std::path::Path;
 
 use ::tobj;
 use ::cgmath::{Vector2, Vector3};
-use ::cgmath::prelude::*;
 
 use super::tri;
-use super::spatial::Spatial;
-use super::aabb::Aabb;
 use super::vtx;
+use super::intersect::IntersectRay;
 
 pub type Triangle = tri::Triangle<Vertex>;
 
@@ -120,30 +118,15 @@ impl Scene {
     }
 
     /// Finds the nearest intersection of the given ray with the triangles in the scene
-    pub fn intersect(&self, ray_origin: &Vector3<f32>, ray_direction: &Vector3<f32>) -> Option<Vector3<f32>> {
-        self.entities.iter()
-            .flat_map(
-                |e| {
-                    let mesh = &e.mesh;
-                    let positions = &mesh.positions;
-
-                    mesh.indices.chunks(3)
-                        .map(
-                            move |i| (
-                                Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
-                                Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
-                                Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize])
-                            )
-                        )
-                }
-            )
+    pub fn intersect(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<Vector3<f32>> {
+        // find lowest t in ray(t) = ray_origin + t * ray_direction
+        let t = self.triangles()
             .filter_map(
-                |(v0, v1, v2)| tri::intersect_ray_with_tri(ray_origin, ray_direction, &v0, &v1, &v2)
+                |t| t.ray_intersection_parameter(ray_origin, ray_direction)
             )
-            .min_by(|i0, i1|
-                // We assume no NaN or infinities, that's why whe need to unwrap
-                ray_origin.distance2(*i0).partial_cmp(&ray_origin.distance2(*i1)).unwrap()
-            )
+            .min_by(|t0, t1| t0.partial_cmp(&t1).unwrap());
+
+        t.map(|t| ray_origin + t * ray_direction)
     }
 
     /// Calculates total triangle count in scene
@@ -151,20 +134,3 @@ impl Scene {
         self.entities.iter().map(|e| e.mesh.indices.len() / 3).sum()
     }
 }
-
-/*impl Triangle {
-
-
-    /// Gets the texture coordinates on the point that is closest to
-    /// p on the triangle.
-    pub fn texcoords_at(&self, p: Vector3<f32>) -> Vector2<f32>{
-        let weights = self.barycentric_at(p);
-        let coords = self.vertices.iter().map(|v| v.texcoords);
-
-        weights.iter()
-            .zip(coords)
-            .map(|(w, c)| *w * c)
-            .sum()
-    }
-}
-*/

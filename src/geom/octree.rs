@@ -8,6 +8,7 @@ use ::cgmath::prelude::Zero;
 
 use super::spatial::Spatial;
 use super::aabb::Aabb;
+use super::intersect::IntersectRay;
 
 #[derive(Debug)]
 pub struct Octree<T>
@@ -103,15 +104,8 @@ impl<T> Octree<T>
         // Continue subdividing as long as splitting makes sense and the octants are larger than 0.1 cubic units
         if own_data.len() > 1 && own_bounds.volume() >= min_node_volume {
             let mut child_data : [Vec<T>; 8] = [
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                Vec::new()
+                Vec::new(), Vec::new(), Vec::new(), Vec::new(),
+                Vec::new(), Vec::new(), Vec::new(), Vec::new()
             ];
             let mut child_octants = octants(&own_bounds);
 
@@ -162,6 +156,26 @@ impl<T> Octree<T>
             children
         }
     }
+
+    /*fn filter_intersect<'a>(&'a self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Box<Iterator<Item = &'a T> + 'a> {
+
+        if self.bounds.intersects_ray(ray_origin, ray_direction) {
+            //self.data.iter()
+              //  .filter(|e| e.bounds().intersects_ray(ray_origin, ray_direction));
+        }
+
+        self.children.iter()
+            .filter_map(|c| c.as_ref().map(move |c| {
+                if c.bounds.intersects_ray(ray_origin, ray_direction) {
+                    c
+                } else {
+                    None
+                }
+            }));
+
+        Box::new(self.data.iter()
+                .filter(move |e| e.bounds().intersects_ray(ray_origin, ray_direction)))
+    }*/
 }
 
 impl<T> FromIterator<T> for Octree<T>
@@ -179,6 +193,41 @@ impl<T> FromIterator<T> for Octree<T>
 
         let min_node_volume = 0.1 * (own_bounds.max.x - own_bounds.min.x);
         Octree::from_vec_with_bounds(own_data, own_bounds, min_node_volume)
+    }
+}
+
+impl<T> IntersectRay for Octree<T>
+    where T : Spatial + IntersectRay
+{
+    fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
+
+        let mut t_min = None;
+
+        if !self.bounds.intersects_ray(ray_origin, ray_direction) {
+            return None;
+        }
+
+        for data in &self.data {
+            if let Some(t) = data.ray_intersection_parameter(ray_origin, ray_direction) {
+                t_min = Some(match(t_min) {
+                    Some(t_min) => if t < t_min { t } else { t_min },
+                    None => t
+                });
+            }
+        }
+
+        for child in &self.children {
+            if let &Some(ref child) = child {
+                if let Some(t) = child.ray_intersection_parameter(ray_origin, ray_direction) {
+                    t_min = Some(match(t_min) {
+                        Some(t_min) => if t < t_min { t } else { t_min },
+                        None => t
+                    });
+                }
+            }
+        }
+
+        t_min
     }
 }
 

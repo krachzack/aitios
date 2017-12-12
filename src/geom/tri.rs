@@ -8,6 +8,7 @@ use ::cgmath::prelude::*;
 use super::vtx::Vertex;
 use super::spatial::Spatial;
 use super::aabb::Aabb;
+use super::intersect::IntersectRay;
 
 use std::ops::Mul;
 use std::iter::Sum;
@@ -89,15 +90,12 @@ impl<V> Triangle<V>
             .map(|(w, v)| v * *w)
             .sum()
     }
+}
 
-    /// Implements the [Möller–Trumbore intersection algorithm](https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm)
-    /// for ray-triangle intersection. Note that this only intersects the front and not the back of the triangle
-    pub fn ray_intersection_point(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<Vector3<f32>> {
-        self.ray_intersection_parameter(ray_origin, ray_direction)
-            .map(move |t| ray_origin + t * ray_direction)
-    }
-
-    pub fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
+impl<V> IntersectRay for Triangle<V>
+    where V : Vertex
+{
+    fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
         let vertex0 = self.vertices[0].position();
         let vertex1 = self.vertices[1].position();
         let vertex2 = self.vertices[2].position();
