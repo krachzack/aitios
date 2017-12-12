@@ -9,6 +9,9 @@ use super::vtx::Vertex;
 use super::spatial::Spatial;
 use super::aabb::Aabb;
 
+use std::ops::Mul;
+use std::iter::Sum;
+
 pub struct Triangle<V>
     where V : Vertex
 {
@@ -33,6 +36,58 @@ impl<V> Triangle<V>
         Triangle {
             vertices: [vertex0, vertex1, vertex2]
         }
+    }
+
+    /// Calculates the area of the triangle specified with the three vertices
+    /// using Heron's formula
+    pub fn area(&self) -> f32 {
+        let p0 = self.vertices[0].position();
+        let p1 = self.vertices[1].position();
+        let p2 = self.vertices[2].position();
+
+        // calculate sidelength
+        let a = (p0 - p1).magnitude();
+        let b = (p1 - p2).magnitude();
+        let c = (p2 - p0).magnitude();
+
+        // s is halved circumference
+        let s = (a + b + c) / 2.0;
+
+        (s * (s - a) * (s - b) * (s - c)).sqrt()
+    }
+
+    /// Compute barycentric coordinates [u, v, w] for
+    /// the closest point to p on the triangle.
+    pub fn barycentric_at(&self, p: Vector3<f32>) -> [f32; 3] {
+        let v0 = self.vertices[1].position() - self.vertices[0].position();
+        let v1 = self.vertices[2].position() - self.vertices[0].position();
+        let v2 = p - self.vertices[0].position();
+
+        let d00 = v0.dot(v0);
+        let d01 = v0.dot(v1);
+        let d11 = v1.dot(v1);
+        let d20 = v2.dot(v0);
+        let d21 = v2.dot(v1);
+        let denom = d00 * d11 - d01 * d01;
+
+        let v = (d11 * d20 - d01 * d21) / denom;
+        let w = (d00 * d21 - d01 * d20) / denom;
+        let u = 1.0 - v - w;
+
+        [u, v, w]
+    }
+
+    pub fn interpolate_at<F, T>(&self, position: Vector3<f32>, vertex_to_val_fn: F) -> T
+        where F: Fn(&V) -> T,
+            T: Sum<<T as Mul<f32>>::Output> + Mul<f32>
+    {
+        let weights = self.barycentric_at(position);
+        let values = self.vertices.iter().map(vertex_to_val_fn);
+
+        weights.iter()
+            .zip(values)
+            .map(|(w, v)| v * *w)
+            .sum()
     }
 
     /// Implements the [Möller–Trumbore intersection algorithm](https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm)
@@ -169,21 +224,20 @@ mod test {
         assert_eq!(tri.ray_intersection_parameter(ray_origin, ray_direction), None);
         assert_eq!(tri.ray_intersection_point(ray_origin, ray_direction), None);
     }
-}
 
-#[test]
-fn test_intersect_ray_with_tri() {
-    let ray_origin = Vector3::<f32>::new(0.0, 0.0, 0.0);
-    let ray_direction = Vector3::<f32>::new(0.0, 0.0, 1.0);
+    #[test]
+    fn interpolate_position() {
+        let vertex0 = Vtx(Vector3::new(-1.0, -1.0, 0.0));
+        let vertex1 = Vtx(Vector3::new(1.0, -1.0, 0.0));
+        let vertex2 = Vtx(Vector3::new(0.0, 1.0, 0.0));
+        let tri = Triangle::new(vertex0, vertex1, vertex2);
 
-    let vertex0 = Vector3::<f32>::new(-1.0, -1.0, 100.0);
-    let vertex1 = Vector3::<f32>::new(1.0, -1.0, 100.0);
-    let vertex2 = Vector3::<f32>::new(0.0, 1.0, 200.0);
+        let point_on_there = Vector3::new(0.0, 0.5, 0.0);
 
-    let intersection = intersect_ray_with_tri(
-        &ray_origin, &ray_direction,
-        &vertex0, &vertex1, &vertex2
-    );
-
-    assert_eq!(intersection, Some(Vector3::new(0.0, 0.0, 150.0)))
+        assert_eq!(
+            point_on_there,
+            tri.interpolate_at(point_on_there, |v| v.position()),
+            "Interpolating the position value should yield the same point"
+        );
+    }
 }

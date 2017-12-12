@@ -185,7 +185,10 @@ impl SurfaceBuilder {
                                         (u.sqrt() * (1.0 - v)) * p1 +
                                         (u.sqrt() * v) * p2;
 
-                        let texcoords = t.texcoords_at(position);
+                        let texcoords = t.interpolate_at(
+                            position,
+                            |v| v.texcoords
+                        );
 
                         Surfel {
                             position,

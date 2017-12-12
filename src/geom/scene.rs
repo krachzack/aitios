@@ -11,6 +11,9 @@ use ::cgmath::prelude::*;
 use super::tri;
 use super::spatial::Spatial;
 use super::aabb::Aabb;
+use super::vtx;
+
+pub type Triangle = tri::Triangle<Vertex>;
 
 pub struct Scene {
     pub entities: Vec<Entity>,
@@ -39,17 +42,9 @@ pub struct Vertex {
     pub entity_idx: usize
 }
 
-#[derive(Debug)]
-pub struct Triangle {
-    pub vertices: [Vertex; 3]
-}
-
-impl Spatial for Triangle {
-    fn bounds(&self) -> Aabb {
-        Aabb::from_points(
-            self.vertices.iter()
-                .map(|v| v.position)
-        )
+impl vtx::Vertex for Vertex {
+    fn position(&self) -> Vector3<f32> {
+        self.position
     }
 }
 
@@ -98,28 +93,26 @@ impl Scene {
 
                         mesh.indices.chunks(3)
                             .map(
-                                move |i| Triangle {
-                                    vertices: [
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
-                                            material_idx,
-                                            entity_idx
-                                        },
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
-                                            material_idx,
-                                            entity_idx
-                                        },
-                                        Vertex {
-                                            position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
-                                            texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
-                                            material_idx,
-                                            entity_idx
-                                        }
-                                    ]
-                                }
+                                move |i| Triangle::new(
+                                    Vertex {
+                                        position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
+                                        texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
+                                        material_idx,
+                                        entity_idx
+                                    },
+                                    Vertex {
+                                        position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
+                                        texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
+                                        material_idx,
+                                        entity_idx
+                                    },
+                                    Vertex {
+                                        position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
+                                        texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
+                                        material_idx,
+                                        entity_idx
+                                    }
+                                )
                             )
                     }
                 )
@@ -159,45 +152,8 @@ impl Scene {
     }
 }
 
-impl Triangle {
-    /// Calculates the area of the triangle specified with the three vertices
-    /// using Heron's formula
-    pub fn area(&self) -> f32 {
-        let p0 = self.vertices[0].position;
-        let p1 = self.vertices[1].position;
-        let p2 = self.vertices[2].position;
+/*impl Triangle {
 
-        // calculate sidelength
-        let a = (p0 - p1).magnitude();
-        let b = (p1 - p2).magnitude();
-        let c = (p2 - p0).magnitude();
-
-        // s is halved circumference
-        let s = (a + b + c) / 2.0;
-
-        (s * (s - a) * (s - b) * (s - c)).sqrt()
-    }
-
-    /// Compute barycentric coordinates [u, v, w] for
-    /// the closest point to p on the triangle.
-    fn barycentric_at(&self, p: Vector3<f32>) -> [f32; 3] {
-        let v0 = self.vertices[1].position - self.vertices[0].position;
-        let v1 = self.vertices[2].position - self.vertices[0].position;
-        let v2 = p - self.vertices[0].position;
-
-        let d00 = v0.dot(v0);
-        let d01 = v0.dot(v1);
-        let d11 = v1.dot(v1);
-        let d20 = v2.dot(v0);
-        let d21 = v2.dot(v1);
-        let denom = d00 * d11 - d01 * d01;
-
-        let v = (d11 * d20 - d01 * d21) / denom;
-        let w = (d00 * d21 - d01 * d20) / denom;
-        let u = 1.0 - v - w;
-
-        [u, v, w]
-    }
 
     /// Gets the texture coordinates on the point that is closest to
     /// p on the triangle.
@@ -211,3 +167,4 @@ impl Triangle {
             .sum()
     }
 }
+*/
