@@ -6,6 +6,8 @@ use std::time::Instant;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
+use ::geom::octree::Octree;
+use ::geom::intersect::IntersectRay;
 
 use ::image;
 
@@ -41,15 +43,22 @@ impl Simulation {
     }
 
     fn iterate(&mut self) {
+        print!("Building octree...  ");
+        io::stdout().flush().unwrap();
+        let before = Instant::now();
+        let octree : Octree<_> = self.scene.triangles().collect();
+        println!("Ok, took {}s", before.elapsed().as_secs());
+
         print!("Finding initial intersections...  ");
         io::stdout().flush().unwrap();
         let before = Instant::now();
         let initial_hits : Vec<_> = self.sources.iter()
             .flat_map(|src| src.emit())
             .filter_map(|(ton, ray_origin, ray_direction)|
-                self.scene.intersect(ray_origin, ray_direction).map(|p| (ton, p) )
+                octree.ray_intersection_point(ray_origin, ray_direction)
+                    .map(|p| (ton, p) )
             ).collect();
-        println!("Ok, took {} minutes", before.elapsed().as_secs() / 60);
+        println!("Ok, took {}s", before.elapsed().as_secs());
 
         println!("Starting ton tracing...");
         let before = Instant::now();
@@ -112,8 +121,8 @@ impl Simulation {
         print!("Collecting interacted surfels into textures... ");
         io::stdout().flush().unwrap();
 
-        let tex_width = 1024;
-        let tex_height = 1024;
+        let tex_width = 512;
+        let tex_height = 512;
 
         // Generate one buffer and filename per entity
         let mut texes : Vec<_> = self.scene.entities.iter().enumerate()
