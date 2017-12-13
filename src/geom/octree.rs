@@ -209,7 +209,7 @@ impl<T> IntersectRay for Octree<T>
 
         for data in &self.data {
             if let Some(t) = data.ray_intersection_parameter(ray_origin, ray_direction) {
-                t_min = Some(match(t_min) {
+                t_min = Some(match t_min {
                     Some(t_min) => if t < t_min { t } else { t_min },
                     None => t
                 });
@@ -219,7 +219,7 @@ impl<T> IntersectRay for Octree<T>
         for child in &self.children {
             if let &Some(ref child) = child {
                 if let Some(t) = child.ray_intersection_parameter(ray_origin, ray_direction) {
-                    t_min = Some(match(t_min) {
+                    t_min = Some(match t_min {
                         Some(t_min) => if t < t_min { t } else { t_min },
                         None => t
                     });

@@ -105,7 +105,7 @@ impl Simulation {
         io::stdout().flush().unwrap();
 
         let hit_map = self.surface.samples.iter()
-        .filter_map(|s| if s.substances[0] > 0.0 { Some(s.position) } else { None });
+            .filter_map(|s| if s.substances[0] > 0.0 { Some(s.position) } else { None });
 
         let hit_map = SurfaceBuilder::new()
             .add_surface_from_points(hit_map)

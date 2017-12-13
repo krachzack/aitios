@@ -121,7 +121,7 @@ fn substance_density_bins(surface: &Surface, substance_idx: usize, entity_idx: u
             // NOTE we use y facing down for serializing textures, but the v coordinate is typically facing up
             let y = ((1.0 - sample.texcoords.y) * (bin_count_y as f32)) as usize;
 
-            if x > bin_count_x || y > bin_count_y {
+            if x >= bin_count_x || y >= bin_count_y {
                 // Interpolation of texture coordinates can lead to degenerate uv coordinates
                 // e.g. < 0 or > 1
                 // In such cases, do not try to save the surfel but ingore it

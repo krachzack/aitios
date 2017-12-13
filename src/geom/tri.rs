@@ -137,50 +137,6 @@ impl<V> IntersectRay for Triangle<V>
     }
 }
 
-
-pub fn intersect_ray_with_tri(ray_origin: &Vector3<f32>,
-                              ray_direction: &Vector3<f32>,
-                              vertex0: &Vector3<f32>,
-                              vertex1: &Vector3<f32>,
-                              vertex2: &Vector3<f32>) -> Option<Vector3<f32>> {
-
-    let epsilon = 0.0000001;
-
-    let edge1 = vertex1 - vertex0;
-    let edge2 = vertex2 - vertex0;
-
-    let h = ray_direction.cross(edge2);
-    let a = edge1.dot(h);
-
-    if a > -epsilon && a < epsilon {
-        return None;
-    }
-
-    let f = 1.0 / a;
-    let s = ray_origin - vertex0;
-    let u = f * (s.dot(h));
-
-    if u < 0.0 || u > 1.0 {
-        return None;
-    }
-
-    let q = s.cross(edge1);
-    let v = f * ray_direction.dot(q);
-
-    if v < 0.0 || (u + v) > 1.0 {
-        return None;
-    }
-
-    let t = f * edge2.dot(q);
-
-    if t < epsilon {
-        return None;
-    }
-
-    let intersection_point = ray_origin + ray_direction * t;
-    Some(intersection_point)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
