@@ -7,7 +7,7 @@ fn main() {
         .scene(
             model_obj_path,
             |s| {
-                s.surfels_per_sqr_unit(5000.0)
+                s.surfels_per_sqr_unit(30000.0)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
@@ -17,7 +17,7 @@ fn main() {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 4.0, 1.0)
-                .emission_count(30000)
+                .emission_count(60000)
         })
         // TODO instead of changing a material, maybe we should change an object
         .add_effect_blend(

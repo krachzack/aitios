@@ -1,16 +1,16 @@
 
 use std::io;
-use std::cmp::Ordering::Equal;
 
 use ::cgmath::{Vector2, Vector3};
-use ::cgmath::prelude::*;
 use ::rand;
+use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 
 use super::scene::Scene;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
-    pub samples: Vec<Surfel>
+    pub samples: Vec<Surfel>,
+    pub spatial_idx: Kdtree<SurfelIndex>
 }
 
 /// Represents an element of the surface of an object
@@ -30,6 +30,13 @@ pub struct Surfel {
     delta_flow: f32,
     /// Holds the amount of substances as numbers in the interval 0..1
     pub substances: Vec<f32>
+}
+
+/// Lightweight spatial index for the surfel
+#[derive(PartialEq, Copy, Clone)]
+pub struct SurfelIndex {
+    position: [f64; 3],
+    idx: Option<usize>
 }
 
 pub struct SurfaceBuilder {
@@ -73,14 +80,22 @@ impl Surface {
     }
 
     pub fn nearest<'a>(&'a mut self, from: Vector3<f32>) -> &'a mut Surfel {
-        let from = from.clone();
-        self.samples.iter_mut().min_by(
-            |a, b| {
-                let dist_a = a.position.distance2(from);
-                let dist_b = b.position.distance2(from);
-                dist_a.partial_cmp(&dist_b).unwrap_or(Equal)
-            }
-        ).unwrap() // panics if samples is empty
+        assert!(!self.samples.is_empty());
+
+        let SurfelIndex { idx: nearest_idx, position: _ } = {
+            let x = from.x as f64;
+            let y = from.y as f64;
+            let z = from.z as f64;
+
+            let lookup_idx = SurfelIndex {
+                position: [x, y, z],
+                idx: None
+            };
+
+            self.spatial_idx.nearest_search(&lookup_idx)
+        };
+
+        &mut self.samples[nearest_idx.unwrap()]
     }
 }
 
@@ -208,6 +223,29 @@ impl SurfaceBuilder {
 
     /// Consumes the builder to create a new surface that is returned.
     pub fn build(self) -> Surface {
-        Surface { samples: self.samples }
+        let spatial_idx = {
+            let mut spatial_index_data : Vec<_> = self.samples.iter()
+                .enumerate()
+                .map(|(idx, s)| {
+                    let idx = Some(idx);
+                    let x = s.position.x as f64;
+                    let y = s.position.y as f64;
+                    let z = s.position.z as f64;
+                    SurfelIndex { idx, position: [x, y, z] }
+                })
+                .collect();
+
+            Kdtree::new(&mut spatial_index_data)
+        };
+
+        Surface { samples: self.samples, spatial_idx }
     }
 }
+
+impl KdtreePointTrait for SurfelIndex {
+    #[inline] // the inline on this method is important! as without it there is ~25% speed loss on the tree when cross-crate usage.
+    fn dims(&self) -> &[f64] {
+        &self.position
+    }
+}
+

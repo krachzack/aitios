@@ -14,7 +14,7 @@ use super::effect::{Effect, Blend};
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder
     scene: Scene,
-    surface: Surface,
+    surface: Option<Surface>,
     iterations: u32,
     sources: Vec<TonSource>,
     effects: Vec<Box<Effect>>
@@ -24,7 +24,7 @@ impl SimulationBuilder {
     pub fn new() -> SimulationBuilder {
         SimulationBuilder {
             scene: Scene::empty(),
-            surface: Surface { samples: Vec::new() },
+            surface: None,
             iterations: 1,
             sources: Vec::new(),
             effects: Vec::new()
@@ -46,7 +46,7 @@ impl SimulationBuilder {
         println!("Ok, {} surfels", surface.samples.len());
 
         self.scene = scene;
-        self.surface = surface;
+        self.surface = Some(surface);
 
         #[cfg(feature = "dump_surfels")]
         self.dump_surfels();
@@ -60,7 +60,7 @@ impl SimulationBuilder {
         print!("Writing surface model to {}... ", surf_dump_file);
         io::stdout().flush().unwrap();
         let mut surf_dump_file = fs::File::create(surf_dump_file).unwrap();
-        match self.surface.dump(&mut surf_dump_file) {
+        match self.surface.as_ref().unwrap().dump(&mut surf_dump_file) {
             Ok(_) => println!("Ok"),
             Err(_) => println!("Failed")
         }
@@ -92,6 +92,6 @@ impl SimulationBuilder {
     }
 
     pub fn build(self) -> Simulation {
-        Simulation::new(self.scene, self.surface, self.iterations, self.sources, self.effects)
+        Simulation::new(self.scene, self.surface.unwrap(), self.iterations, self.sources, self.effects)
     }
 }
