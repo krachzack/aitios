@@ -147,6 +147,8 @@ impl Effect for DensityMap {
         let tex_width = self.texture_width as u32;
         let tex_height = self.texture_height as u32;
 
+        println!("Collecting density maps in resolution {}x{} for {} substances...", tex_width, tex_height, substance_count);
+
         let texes = scene.entities.iter().enumerate()
             .flat_map(|(entity_idx, e)| {
                 let texcoord_tree = build_surfel_texel_tree(surface, entity_idx);
