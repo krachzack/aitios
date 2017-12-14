@@ -7,7 +7,7 @@ fn main() {
         .scene(
             model_obj_path,
             |s| {
-                s.surfels_per_sqr_unit(30000.0)
+                s.surfels_per_sqr_unit(5000.0)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
@@ -26,6 +26,9 @@ fn main() {
             "map_Kd", // map of the material that gets changed
             "green_plastic_maximum_weathered.png"
         )
+        .add_effect_density_map(256, 256)
+        .add_effect_density_map(512, 512)
+        .add_effect_density_map(1024, 1024)
         .iterations(1)
         .build()
         .run();

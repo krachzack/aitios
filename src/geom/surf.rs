@@ -200,10 +200,23 @@ impl SurfaceBuilder {
                                         (u.sqrt() * (1.0 - v)) * p1 +
                                         (u.sqrt() * v) * p2;
 
-                        let texcoords = t.interpolate_at(
+                        let mut texcoords = t.interpolate_at(
                             position,
                             |v| v.texcoords
                         );
+
+                        // TODO maybe add warning if UVs degenerate
+                        if texcoords.x < 0.0 {
+                            texcoords.x = 0.0;
+                        } else if texcoords.x > 1.0 {
+                            texcoords.x = 1.0;
+                        }
+
+                        if texcoords.y < 0.0 {
+                            texcoords.y = 0.0;
+                        } else if texcoords.y > 1.0 {
+                            texcoords.y = 1.0;
+                        }
 
                         Surfel {
                             position,

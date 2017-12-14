@@ -9,7 +9,7 @@ use ::geom::scene::Scene;
 
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{Effect, Blend};
+use super::effect::{Effect, Blend, DensityMap};
 
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder
@@ -85,6 +85,16 @@ impl SimulationBuilder {
         self.effects.push(
             Box::new(
                 Blend::new(substance_idx, subject_material_name, subject_material_map, blend_towards_tex_file)
+            )
+        );
+
+        self
+    }
+
+    pub fn add_effect_density_map(mut self, map_width: usize, map_height: usize) -> SimulationBuilder {
+        self.effects.push(
+            Box::new(
+                DensityMap::new(map_width, map_height)
             )
         );
 
