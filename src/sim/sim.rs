@@ -9,8 +9,6 @@ use ::geom::scene::Scene;
 use ::geom::octree::Octree;
 use ::geom::intersect::IntersectRay;
 
-use ::image;
-
 use super::ton::TonSource;
 use super::effect::Effect;
 
@@ -19,19 +17,26 @@ pub struct Simulation {
     surface: Surface,
     iterations: u32,
     sources: Vec<TonSource>,
-    effects: Vec<Box<Effect>>
+    effects: Vec<Box<Effect>>,
+    /// Determines how much of a substance stored in a ton will be transferred to an interacted
+    /// surfel.
+    ///
+    /// The general form is:
+    /// surfel.substance[n] = surfel.substance[n] + ton_to_surface_interaction_weight * ton.substance[n]
+    ton_to_surface_interaction_weight: f32
 }
 
 impl Simulation {
     /// Creates a new simulation.
     /// Using the builder is recommended.
-    pub fn new(scene: Scene, surface: Surface, iterations: u32, sources: Vec<TonSource>, effects: Vec<Box<Effect>>) -> Simulation {
+    pub fn new(scene: Scene, surface: Surface, ton_to_surface_interaction_weight: f32, iterations: u32, sources: Vec<TonSource>, effects: Vec<Box<Effect>>) -> Simulation {
         Simulation {
             scene,
             surface,
             iterations,
             sources,
-            effects
+            effects,
+            ton_to_surface_interaction_weight
         }
     }
 
@@ -60,18 +65,12 @@ impl Simulation {
             ).collect();
         println!("Ok, took {}s", before.elapsed().as_secs());
 
-        println!("Starting ton tracing...");
+        print!("Starting ton tracing...  ");
+        io::stdout().flush().unwrap();
         let before = Instant::now();
-        let mut iteration_nr = 1;
-        let print_progress_interval = if initial_hits.len() < 10 { 1 } else { initial_hits.len() / 10 };
+        let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
         for &(ref ton, intersection_point) in initial_hits.iter() {
             let interacting_surfel = self.surface.nearest(intersection_point);
-
-            if (iteration_nr % print_progress_interval) == 0 {
-                println!("Tracing materials... {}%", (100.0 * (iteration_nr as f64) / (initial_hits.len() as f64)).round());
-            }
-
-            iteration_nr += 1;
 
             assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
             let material_transports = interacting_surfel.substances
@@ -81,11 +80,10 @@ impl Simulation {
                 );
 
             for (ref mut surfel_material, &ton_material) in material_transports {
-                let ton_to_surface_interaction_weight = 0.15; // k value for accumulation of material
                 **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
             }
         }
-        println!("Ok, ton tracing took {} minutes", before.elapsed().as_secs() / 60);
+        println!("Ok, {}s", before.elapsed().as_secs());
 
         #[cfg(feature = "dump_hit_map")]
         self.dump_hit_map();

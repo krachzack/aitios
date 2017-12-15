@@ -4,6 +4,7 @@ fn main() {
     let model_obj_path = "testdata/plastic-pipe.obj";
 
     aitios::SimulationBuilder::new()
+        .ton_to_surface_interaction_weight(0.6)
         .scene(
             model_obj_path,
             |s| {

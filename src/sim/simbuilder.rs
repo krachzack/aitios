@@ -17,7 +17,8 @@ pub struct SimulationBuilder {
     surface: Option<Surface>,
     iterations: u32,
     sources: Vec<TonSource>,
-    effects: Vec<Box<Effect>>
+    effects: Vec<Box<Effect>>,
+    ton_to_surface_interaction_weight: f32
 }
 
 impl SimulationBuilder {
@@ -27,12 +28,14 @@ impl SimulationBuilder {
             surface: None,
             iterations: 1,
             sources: Vec::new(),
-            effects: Vec::new()
+            effects: Vec::new(),
+            ton_to_surface_interaction_weight: 0.3
         }
     }
 
     pub fn scene<F>(mut self, scene_obj_file_path: &str, build_surface: F) -> SimulationBuilder
-    where F: FnOnce(SurfaceBuilder) -> SurfaceBuilder {
+        where F: FnOnce(SurfaceBuilder) -> SurfaceBuilder
+    {
         print!("Loading OBJ at {}... ", scene_obj_file_path);
         io::stdout().flush().unwrap();
         let scene = Scene::load_from_file(scene_obj_file_path);
@@ -64,6 +67,11 @@ impl SimulationBuilder {
             Ok(_) => println!("Ok"),
             Err(_) => println!("Failed")
         }
+    }
+
+    pub fn ton_to_surface_interaction_weight(mut self, ton_to_surface_interaction_weight: f32) -> SimulationBuilder {
+        self.ton_to_surface_interaction_weight = ton_to_surface_interaction_weight;
+        self
     }
 
     pub fn iterations(mut self, iterations: u32) -> SimulationBuilder {
@@ -102,6 +110,6 @@ impl SimulationBuilder {
     }
 
     pub fn build(self) -> Simulation {
-        Simulation::new(self.scene, self.surface.unwrap(), self.iterations, self.sources, self.effects)
+        Simulation::new(self.scene, self.surface.unwrap(), self.ton_to_surface_interaction_weight, self.iterations, self.sources, self.effects)
     }
 }
