@@ -160,7 +160,8 @@ impl Effect for DensityMap {
                         // Initialize with magenta so we see the texels that do not have a surfel nearby
                         |x, y| {
                             let u = ((x as f64) + 0.5) / (tex_width as f64);
-                            let v = ((y as f64) + 0.5) / (tex_height as f64);
+                            // Texture files are y down, reverse v coordinate when looking up near surfel
+                            let v = 1.0 - ((y as f64) + 0.5) / (tex_height as f64);
 
                             let surfel_idx = texcoord_tree.nearest_search(&SurfelTexelIndex {
                                 texcoords: [u, v],
