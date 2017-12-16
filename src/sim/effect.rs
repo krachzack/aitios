@@ -10,7 +10,7 @@ use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 
 use ::tobj::Material;
 
-//use ::cgmath::Vector2;
+use ::cgmath::Vector2;
 
 pub trait Effect {
     fn perform(&self, scene: &mut Scene, surface: &Surface);
@@ -49,7 +49,7 @@ impl Effect for Blend {
         let materials = &mut scene.materials;
 
         for (entity_idx, entity) in entities.iter_mut().enumerate().filter(|args| args.1.material_idx == subject_material_idx) {
-            let blend_factors = blend_factors_by_closest_surfel(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
+            let blend_factors = blend_factors_by_avg_local_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
 
             let blended_map = image::ImageBuffer::from_fn(
                 subject_map.width(), subject_map.height(),
@@ -262,7 +262,7 @@ fn build_surfel_texel_tree(surface: &Surface, entity_idx: usize) -> Kdtree<Surfe
 }
 
 
-/*
+
 // TODO maybe use sum, not avg?
 fn blend_factors_by_avg_local_density(surface: &Surface, substance_idx: usize, entity_idx: usize, tex_width: usize, tex_height: usize) -> Vec<f32> {
     substance_density_bins(surface, substance_idx, entity_idx, tex_width, tex_height)
@@ -316,4 +316,4 @@ fn nearest_texel_idx_clamp(texcoords: Vector2<f32>, texel_count_x: usize, texel_
 
     y * texel_count_x + x
 }
-*/
+

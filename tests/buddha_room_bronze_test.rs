@@ -22,7 +22,7 @@ fn buddha_room_bronze_test() {
     let mtl_file = mtl_file.to_str().unwrap();
 
     let mut density_map_output_directory = directory.clone();
-    density_map_output_directory.push("density-maps");
+    density_map_output_directory.push("substance-density-maps");
     create_dir(&density_map_output_directory).unwrap();
 
     let density_map_output_directory = density_map_output_directory.to_str().unwrap();
@@ -41,7 +41,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.surfels_per_sqr_unit(100.0)
+                s.surfels_per_sqr_unit(5000.0)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
