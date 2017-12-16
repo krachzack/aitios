@@ -1,12 +1,32 @@
 extern crate aitios;
+#[macro_use] extern crate log;
+extern crate simplelog;
+extern crate chrono;
 
-fn main() {
-    let model_obj_path = "testdata/plastic-pipe.obj";
+mod common;
+
+#[test]
+fn buddha_room_bronze_test() {
+    let directory = common::prepare_test_directory("buddha_room_bronze_test");
+
+    let mut obj_file = directory.clone();
+    obj_file.push("buddha-scene-weathered");
+    obj_file.set_extension("obj");
+    let obj_file = obj_file.to_str().unwrap();
+
+    let mut mtl_file = directory.clone();
+    mtl_file.push("buddha-scene-weathered");
+    mtl_file.set_extension("mtl");
+    let mtl_file = mtl_file.to_str().unwrap();
+
+
+    let input_path = "testdata/buddha-scene";
+    let model_obj_path = format!("{}/buddha-scene.obj", input_path);
 
     aitios::SimulationBuilder::new()
         .ton_to_surface_interaction_weight(0.6)
         .scene(
-            model_obj_path,
+            &model_obj_path,
             |s| {
                 s.surfels_per_sqr_unit(5000.0)
                     .delta_straight(1.0)
@@ -23,13 +43,14 @@ fn main() {
         // TODO instead of changing a material, maybe we should change an object
         .add_effect_blend(
             0, // Index of substance that drives the blend
-            "green_plastic", // material that gets changed
+            "bronze", // material that gets changed
             "map_Kd", // map of the material that gets changed
-            "green_plastic_maximum_weathered.png"
+            "testdata/buddha-scene/weathered_bronze.png"
         )
         .add_effect_density_map(256, 256)
         .add_effect_density_map(512, 512)
         .add_effect_density_map(1024, 1024)
+        .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .iterations(1)
         .build()
         .run();

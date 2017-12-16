@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use ::geom::surf::Surface;
 use ::geom::scene::Scene;
 use ::image;
@@ -11,7 +11,7 @@ use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 //use ::cgmath::Vector2;
 
 pub trait Effect {
-    fn perform(&self, scene: &Scene, surface: &Surface);
+    fn perform(&self, scene: &mut Scene, surface: &Surface);
 }
 
 pub struct Blend {
@@ -24,18 +24,21 @@ pub struct Blend {
     /// Follows OBJ conventions, e.g. map_Kd is the diffuse map.
     subject_material_map: String,
     /// Material that the subject map should be blended towards
-    blend_towards_tex_file: String
+    blend_towards_tex_file: String,
+    material_directory: PathBuf
 }
 
 impl Effect for Blend {
-    fn perform(&self, scene: &Scene, surface: &Surface) {
+    fn perform(&self, scene: &mut Scene, surface: &Surface) {
         let subject_map = self.load_subject_map(scene);
         let towards_map = self.load_towards_map();
 
         assert_eq!(subject_map.dimensions(), towards_map.dimensions());
         let (tex_width, tex_height) = subject_map.dimensions();
 
-        let subject_material_idx = scene.materials.iter().position(|m| m.name == self.subject_material_name).unwrap();
+        let subject_material_idx = scene.materials.iter()
+            .position(|m| m.name == self.subject_material_name)
+            .expect(&format!("No material with specified name {}", self.subject_material_name));
 
         for (entity_idx, entity) in scene.entities.iter().enumerate().filter(|&(_, e)| e.material_idx == subject_material_idx) {
             let blend_factors = blend_factors_by_closest_surfel(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
@@ -52,46 +55,58 @@ impl Effect for Blend {
             );
 
             let target_filename = format!("testdata/{}-{}-{}-{}-weathered.png", entity_idx, entity.name, self.subject_material_name, self.subject_material_map);
-            println!("Writing effect texture {}...", target_filename);
+            info!("Writing effect texture {}...", target_filename);
             let fout = &mut File::create(target_filename).unwrap();
 
-            image::ImageRgba8(blended_map).save(fout, image::PNG).unwrap();
+            image::ImageRgba8(blended_map).save(fout, image::PNG)
+                .expect("Blended map could not be written")
         }
     }
 }
 
 impl Blend {
-    pub fn new(substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str) -> Blend {
+    pub fn new(substance_idx: usize, material_directory: &Path, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str) -> Blend {
         Blend {
             substance_idx,
             subject_material_name: String::from(subject_material_name),
             subject_material_map: String::from(subject_material_map),
-            blend_towards_tex_file: String::from(blend_towards_tex_file)
+            blend_towards_tex_file: String::from(blend_towards_tex_file),
+            material_directory: PathBuf::from(material_directory)
         }
     }
 
     fn load_subject_map(&self, scene: &Scene) -> image::DynamicImage {
-        let texture_base_path = "testdata/";
 
-        // Panics if subject material is not there, this is a little late for that check
-        let subject_material_idx = scene.materials.iter().position(|m| m.name == self.subject_material_name).unwrap();
-        let subject_material = &scene.materials[subject_material_idx];
-        let subject_map = match self.subject_material_map.as_ref() {
-            "map_Kd" => &subject_material.diffuse_texture,
-            _ => panic!(format!("Unknown subject map {}, try map_Kd", self.subject_material_map))
+        let subject_material = {
+            // Panics if subject material is not there, this is a little late for that check
+            let subject_material_idx = scene.materials.iter()
+                .position(|m| m.name == self.subject_material_name)
+                .expect(&format!("Unknown material {} for blend effect", self.subject_material_name));
+
+            &scene.materials[subject_material_idx]
         };
-        let subject_map = format!("{}{}", texture_base_path, subject_map);
+
+        let subject_map_path = {
+            let subject_map_filename = match self.subject_material_map.as_ref() {
+                "map_Kd" => &subject_material.diffuse_texture,
+                _ => panic!("Unknown subject map {}, try map_Kd", self.subject_material_map)
+            };
+
+            let mut subject_map_path = self.material_directory.clone();
+            subject_map_path.push(subject_map_filename);
+            subject_map_path
+        };
+
         // Panics if texture cannot be loaded
-        let subject_map = image::open(&Path::new(&subject_map)).unwrap();
+        let subject_map = image::open(&subject_map_path)
+            .expect(&format!("Subject map at {:?} not found", subject_map_path));
 
         subject_map
     }
 
     fn load_towards_map(&self) -> image::DynamicImage {
-        let texture_base_path = "testdata/";
-        let towards_map = format!("{}{}", texture_base_path, self.blend_towards_tex_file);
-
-        image::open(&Path::new(&towards_map)).unwrap()
+        image::open(&Path::new(&self.blend_towards_tex_file))
+            .expect(&format!("Blend towards map at {:?} not found", self.blend_towards_tex_file))
     }
 }
 
@@ -141,13 +156,13 @@ impl DensityMap {
 }
 
 impl Effect for DensityMap {
-    fn perform(&self, scene: &Scene, surface: &Surface) {
+    fn perform(&self, scene: &mut Scene, surface: &Surface) {
         let substance_count = surface.samples[0].substances.len();
 
         let tex_width = self.texture_width as u32;
         let tex_height = self.texture_height as u32;
 
-        println!("Collecting density maps in resolution {}x{} for {} substances...", tex_width, tex_height, substance_count);
+        info!("Collecting density maps in resolution {}x{} for {} substances...", tex_width, tex_height, substance_count);
 
         let texes = scene.entities.iter().enumerate()
             .flat_map(|(entity_idx, e)| {
@@ -179,7 +194,7 @@ impl Effect for DensityMap {
             });
 
         for (filename, tex) in texes {
-            println!("Writing {}...", filename);
+            info!("Writing {}...", filename);
             let fout = &mut File::create(filename).unwrap();
             image::ImageRgb8(tex).save(fout, image::PNG).unwrap();
         }
@@ -251,7 +266,7 @@ fn nearest_texel_idx_clamp(texcoords: Vector2<f32>, texel_count_x: usize, texel_
         // Interpolation of texture coordinates can lead to degenerate uv coordinates
         // e.g. < 0 or > 1
         // In such cases, do not try to save the surfel but ingore it
-        println!("WARNING: Degenerate surfel UVs: [{}, {}], clamping to 1.0", texcoords.x, 1.0 - texcoords.y);
+        warn!("WARNING: Degenerate surfel UVs: [{}, {}], clamping to 1.0", texcoords.x, 1.0 - texcoords.y);
 
         if x >= texel_count_x { x = texel_count_x - 1; }
         if y >= texel_count_y { y = texel_count_y - 1; }
