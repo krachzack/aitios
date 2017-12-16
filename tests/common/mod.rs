@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::fs::{File, create_dir_all};
 
 pub fn prepare_test_directory(test_directory_name: &str) -> PathBuf {
-    let test_output_parent_directory = "test_output";
+    let test_output_parent_directory = "test-output";
 
     let mut path_buf = PathBuf::from(test_output_parent_directory);
     path_buf.push(format!("{}-{}", filename_timestamp(), test_directory_name));

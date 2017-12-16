@@ -29,15 +29,20 @@ fn buddha_room_bronze_test() {
 
     let blent_map_output_directory = directory.to_str().unwrap();
 
-    let input_path = "testdata/buddha-scene";
+    let input_path = "test-scenes/buddha-scene";
     let model_obj_path = format!("{}/buddha-scene.obj", input_path);
 
     let mut hit_map_path = directory.clone();
     hit_map_path.push("interacted_surfels");
     hit_map_path.set_extension("obj");
 
+    let mut surfels_path = directory.clone();
+    surfels_path.push("surfels");
+    surfels_path.set_extension("obj");
+
     aitios::SimulationBuilder::new()
         .ton_to_surface_interaction_weight(1.0)
+        .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
             |s| {
@@ -50,7 +55,7 @@ fn buddha_room_bronze_test() {
         .add_source(|s| {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
-                .point_shaped(0.0, 1.0, 0.0)
+                .point_shaped(0.0, 2.0, 0.0)
                 .emission_count(80000)
         })
         // TODO instead of changing a material, maybe we should change an object
@@ -58,14 +63,14 @@ fn buddha_room_bronze_test() {
             0, // Index of substance that drives the blend
             "bronze", // material that gets changed
             "map_Kd", // map of the material that gets changed
-            "testdata/buddha-scene/weathered_bronze.png",
+            "test-scenes/buddha-scene/weathered_bronze.png",
             blent_map_output_directory
         )
         .add_effect_blend(
             0,
             "stone",
             "map_Kd",
-            "testdata/buddha-scene/moss.png",
+            "test-scenes/buddha-scene/moss.png",
             blent_map_output_directory
         )
         //.add_effect_density_map(256, 256, density_map_output_directory)

@@ -3,10 +3,6 @@ name = "aitios"
 version = "0.1.0"
 authors = ["PhilippStadler"]
 
-[features]
-default = [ "dump_surfels" ]
-dump_surfels = []
-
 [dependencies]
 log = "0.3.8"
 cgmath = "0.15.0"

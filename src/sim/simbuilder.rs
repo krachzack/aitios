@@ -25,7 +25,8 @@ pub struct SimulationBuilder {
     effects: Vec<Box<Effect>>,
     scene_sinks: Vec<Box<SceneSink>>,
     ton_to_surface_interaction_weight: f32,
-    hit_map_path: Option<PathBuf>
+    hit_map_path: Option<PathBuf>,
+    surfel_obj_path: Option<PathBuf>
 }
 
 impl SimulationBuilder {
@@ -39,7 +40,8 @@ impl SimulationBuilder {
             effects: Vec::new(),
             scene_sinks: Vec::new(),
             ton_to_surface_interaction_weight: 0.3,
-            hit_map_path: None
+            hit_map_path: None,
+            surfel_obj_path: None
         }
     }
 
@@ -65,25 +67,29 @@ impl SimulationBuilder {
         self.scene = scene;
         self.surface = Some(surface);
 
-        #[cfg(feature = "dump_surfels")]
         self.dump_surfels();
 
         self
     }
 
-    #[cfg(feature = "dump_surfels")]
     fn dump_surfels(&self) {
-        let surf_dump_file = "testdata/debug_surfels.obj";
-        info!("Writing surface model to {}...", surf_dump_file);
-        let mut surf_dump_file = fs::File::create(surf_dump_file).unwrap();
-        match self.surface.as_ref().unwrap().dump(&mut surf_dump_file) {
-            Ok(_) => info!("Ok"),
-            Err(_) => info!("Failed")
+        if let Some(surfel_obj_path) = self.surfel_obj_path.as_ref() {
+            info!("Writing surface model to {:?}...", surfel_obj_path);
+            let mut obj_file = fs::File::create(surfel_obj_path).unwrap();
+            match self.surface.as_ref().unwrap().dump(&mut obj_file) {
+                Ok(_) => info!("Ok"),
+                Err(_) => info!("Failed")
+            }
         }
     }
 
     pub fn hit_map_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
         self.hit_map_path = Some(path.into());
+        self
+    }
+
+    pub fn surfel_obj_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
+        self.surfel_obj_path = Some(path.into());
         self
     }
 
