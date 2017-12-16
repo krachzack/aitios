@@ -117,7 +117,7 @@ fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, enti
     let texel_center_uvs = texel_integer_coords
         .map(|(x, y)| (
             ((x as f64) + 0.5) / (bin_count_x as f64),
-            ((y as f64) + 0.5) / (bin_count_y as f64)
+            (((bin_count_y - y) as f64) + 0.5) / (bin_count_y as f64)
         ));
 
     let nearest_surfel_indexes = texel_center_uvs.map(|(u, v)| texcoord_tree.nearest_search(&SurfelTexelIndex {
@@ -157,11 +157,10 @@ impl Effect for DensityMap {
                     let filename = format!("testdata/{}-{}-substance-{}-{}x{}.png", entity_idx, e.name, substance_idx, tex_width, tex_height);
                     let tex_buf = image::ImageBuffer::from_fn(
                         tex_width, tex_height,
-                        // Initialize with magenta so we see the texels that do not have a surfel nearby
                         |x, y| {
                             let u = ((x as f64) + 0.5) / (tex_width as f64);
-                            // Texture files are y down, reverse v coordinate when looking up near surfel
-                            let v = 1.0 - ((y as f64) + 0.5) / (tex_height as f64);
+                            // pixels are y down, reverse v coordinate when calculating uv coordinates
+                            let v = (((tex_height - y) as f64) + 0.5) / (tex_height as f64);
 
                             let surfel_idx = texcoord_tree.nearest_search(&SurfelTexelIndex {
                                 texcoords: [u, v],
