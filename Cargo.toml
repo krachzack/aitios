@@ -4,8 +4,7 @@ version = "0.1.0"
 authors = ["PhilippStadler"]
 
 [features]
-default = [ "dump_hit_map", "dump_surfels" ]
-dump_hit_map = []
+default = [ "dump_surfels" ]
 dump_surfels = []
 
 [dependencies]

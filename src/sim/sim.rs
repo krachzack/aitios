@@ -1,5 +1,6 @@
 use std::fs;
 use std::time::Instant;
+use std::path::PathBuf;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
@@ -23,13 +24,24 @@ pub struct Simulation {
     ///
     /// The general form is:
     /// surfel.substance[n] = surfel.substance[n] + ton_to_surface_interaction_weight * ton.substance[n]
-    ton_to_surface_interaction_weight: f32
+    ton_to_surface_interaction_weight: f32,
+    /// If set, holds the path where to write an obj with the subset of the surfels that were hit
+    hit_map_path: Option<PathBuf>,
 }
 
 impl Simulation {
     /// Creates a new simulation.
     /// Using the builder is recommended.
-    pub fn new(scene: Scene, surface: Surface, ton_to_surface_interaction_weight: f32, iterations: u32, sources: Vec<TonSource>, effects: Vec<Box<Effect>>, scene_sinks: Vec<Box<SceneSink>>) -> Simulation {
+    pub fn new(
+        scene: Scene,
+        surface: Surface,
+        ton_to_surface_interaction_weight: f32,
+        iterations: u32,
+        sources: Vec<TonSource>,
+        effects: Vec<Box<Effect>>,
+        scene_sinks: Vec<Box<SceneSink>>,
+        hit_map_path: Option<PathBuf>) -> Simulation
+    {
         Simulation {
             scene,
             surface,
@@ -37,7 +49,8 @@ impl Simulation {
             sources,
             effects,
             scene_sinks,
-            ton_to_surface_interaction_weight
+            ton_to_surface_interaction_weight,
+            hit_map_path
         }
     }
 
@@ -53,6 +66,8 @@ impl Simulation {
             self.perform_effects();
             self.serialize_scene_to_sinks();
         }
+
+        self.dump_hit_map();
     }
 
     fn iterate(&mut self) {
@@ -89,9 +104,6 @@ impl Simulation {
             }
         }
         info!("Ok, {}s", before.elapsed().as_secs());
-
-        #[cfg(feature = "dump_hit_map")]
-        self.dump_hit_map();
     }
 
     fn perform_effects(&mut self) {
@@ -106,20 +118,20 @@ impl Simulation {
         }
     }
 
-    #[cfg(feature = "dump_hit_map")]
     fn dump_hit_map(&self) {
-        let hit_map_file = "testdata/debug_hits.obj";
-        info!("Dumping interacted surfels to {}... ", hit_map_file);
+        if let Some(hit_map_path) = self.hit_map_path.as_ref() {
+            info!("Dumping interacted surfels to {:?}... ", hit_map_path);
 
-        let hit_map = self.surface.samples.iter()
-            .filter_map(|s| if s.substances[0] > 0.0 { Some(s.position) } else { None });
+            let hit_map = self.surface.samples.iter()
+                .filter_map(|s| if s.substances[0] > 0.0 { Some(s.position) } else { None });
 
-        let hit_map = SurfaceBuilder::new()
-            .add_surface_from_points(hit_map)
-            .build();
+            let hit_map = SurfaceBuilder::new()
+                .add_surface_from_points(hit_map)
+                .build();
 
-        hit_map.dump(&mut fs::File::create(hit_map_file).unwrap()).unwrap();
+            hit_map.dump(&mut fs::File::create(hit_map_path).unwrap()).unwrap();
 
-        info!("Ok");
+            info!("Ok");
+        }
     }
 }

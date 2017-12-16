@@ -8,6 +8,8 @@ use image::Pixel;
 
 use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 
+use ::tobj::Material;
+
 //use ::cgmath::Vector2;
 
 pub trait Effect {
@@ -31,6 +33,8 @@ pub struct Blend {
 
 impl Effect for Blend {
     fn perform(&self, scene: &mut Scene, surface: &Surface) {
+        info!("Blending textures for material {}", self.subject_material_name);
+
         let subject_map = self.load_subject_map(scene);
         let towards_map = self.load_towards_map();
 
@@ -41,7 +45,10 @@ impl Effect for Blend {
             .position(|m| m.name == self.subject_material_name)
             .expect(&format!("No material with specified name {}", self.subject_material_name));
 
-        for (entity_idx, entity) in scene.entities.iter().enumerate().filter(|&(_, e)| e.material_idx == subject_material_idx) {
+        let entities = &mut scene.entities;
+        let materials = &mut scene.materials;
+
+        for (entity_idx, entity) in entities.iter_mut().enumerate().filter(|args| args.1.material_idx == subject_material_idx) {
             let blend_factors = blend_factors_by_closest_surfel(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
 
             let blended_map = image::ImageBuffer::from_fn(
@@ -59,13 +66,35 @@ impl Effect for Blend {
             target_filename.push(format!("{}-{}-{}-{}-weathered", entity_idx, entity.name, self.subject_material_name, self.subject_material_map));
             target_filename.set_extension("png");
 
+            let target_filename_relative = String::from(target_filename.file_name().unwrap().to_str().unwrap());
+
             info!("Writing effect texture {:?}...", target_filename);
             let fout = &mut File::create(target_filename).unwrap();
 
             image::ImageRgba8(blended_map).save(fout, image::PNG)
-                .expect("Blended map could not be written")
+                .expect("Blended map could not be written");
+
+            let blended_material_idx = duplicate_material(materials, subject_material_idx);
+            let blended_material = &mut materials[blended_material_idx];
+            blended_material.name = format!("{}-entity-{}-{}-substance-{}-blended", blended_material.name, entity_idx, entity.name, self.substance_idx);
+
+            match self.subject_material_map.as_ref() {
+                "map_Kd" => blended_material.diffuse_texture = target_filename_relative,
+                _ => panic!("Unknown subject map {}, try map_Kd", self.subject_material_map)
+            }
+
+            entity.material_idx = blended_material_idx;
         }
     }
+}
+
+fn duplicate_material(materials: &mut Vec<Material>, original_idx: usize) -> usize {
+    let material = materials[original_idx].clone();
+
+    let new_material_idx = materials.len();
+    materials.push(material);
+
+    new_material_idx
 }
 
 impl Blend {
@@ -146,6 +175,8 @@ fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, enti
     }).surfel_idx.unwrap());
 
     nearest_surfel_indexes.map(|idx| surface.samples[idx].substances[substance_idx])
+        // 1:1 mapping of density to blend factor, but clamp values over 1.0
+        .map(|density| if density > 1.0 { 1.0 } else { 0.0 })
         .collect()
 }
 
@@ -163,6 +194,8 @@ impl DensityMap {
 
 impl Effect for DensityMap {
     fn perform(&self, scene: &mut Scene, surface: &Surface) {
+        info!("Writing density maps to {:?}", self.output_directory);
+
         let substance_count = surface.samples[0].substances.len();
 
         let tex_width = self.texture_width as u32;

@@ -70,6 +70,9 @@ impl SceneSink for ObjSink {
             for texcoord_line in texcoord_lines {
                 obj.write(texcoord_line.as_bytes())?;
             }
+            let material_idx = entity.material_idx;
+            let material_name = &scene.materials[material_idx].name;
+            obj.write(format!("usemtl {}\n", material_name).as_bytes())?;
 
             {
                 let face_lines = entity.mesh.indices.chunks(3)
@@ -91,7 +94,7 @@ impl SceneSink for ObjSink {
             obj.write("\n".as_bytes())?;
 
             position_idx_base += entity.mesh.positions.len() / 3;
-            texcoord_idx_base += entity.mesh.texcoords.len() / 3;
+            texcoord_idx_base += entity.mesh.texcoords.len() / 2;
         }
 
         Ok(())

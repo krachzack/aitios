@@ -24,7 +24,8 @@ pub struct SimulationBuilder {
     sources: Vec<TonSource>,
     effects: Vec<Box<Effect>>,
     scene_sinks: Vec<Box<SceneSink>>,
-    ton_to_surface_interaction_weight: f32
+    ton_to_surface_interaction_weight: f32,
+    hit_map_path: Option<PathBuf>
 }
 
 impl SimulationBuilder {
@@ -37,7 +38,8 @@ impl SimulationBuilder {
             sources: Vec::new(),
             effects: Vec::new(),
             scene_sinks: Vec::new(),
-            ton_to_surface_interaction_weight: 0.3
+            ton_to_surface_interaction_weight: 0.3,
+            hit_map_path: None
         }
     }
 
@@ -48,6 +50,8 @@ impl SimulationBuilder {
         io::stdout().flush().unwrap();
         let scene = Scene::load_from_file(scene_obj_file_path);
         info!("Ok, {} triangles", scene.triangle_count());
+
+        debug!("look: {}", scene.materials[0].diffuse_texture);
 
         info!("Generating surface models from meshes... ");
         io::stdout().flush().unwrap();
@@ -76,6 +80,11 @@ impl SimulationBuilder {
             Ok(_) => info!("Ok"),
             Err(_) => info!("Failed")
         }
+    }
+
+    pub fn hit_map_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
+        self.hit_map_path = Some(path.into());
+        self
     }
 
     pub fn ton_to_surface_interaction_weight(mut self, ton_to_surface_interaction_weight: f32) -> SimulationBuilder {
@@ -130,6 +139,15 @@ impl SimulationBuilder {
     }
 
     pub fn build(self) -> Simulation {
-        Simulation::new(self.scene, self.surface.unwrap(), self.ton_to_surface_interaction_weight, self.iterations, self.sources, self.effects, self.scene_sinks)
+        Simulation::new(
+            self.scene,
+            self.surface.unwrap(),
+            self.ton_to_surface_interaction_weight,
+            self.iterations,
+            self.sources,
+            self.effects,
+            self.scene_sinks,
+            self.hit_map_path
+        )
     }
 }
