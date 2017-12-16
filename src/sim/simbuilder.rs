@@ -2,7 +2,7 @@
 use std::fs;
 use std::io::prelude::*;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
@@ -98,20 +98,20 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str) -> SimulationBuilder {
+    pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str, output_directory: &str) -> SimulationBuilder {
         self.effects.push(
             Box::new(
-                Blend::new(substance_idx, &self.scene_directory, subject_material_name, subject_material_map, blend_towards_tex_file)
+                Blend::new(substance_idx, &self.scene_directory, subject_material_name, subject_material_map, blend_towards_tex_file, &Path::new(output_directory))
             )
         );
 
         self
     }
 
-    pub fn add_effect_density_map(mut self, map_width: usize, map_height: usize) -> SimulationBuilder {
+    pub fn add_effect_density_map(mut self, map_width: usize, map_height: usize, output_directory: &str) -> SimulationBuilder {
         self.effects.push(
             Box::new(
-                DensityMap::new(map_width, map_height)
+                DensityMap::new(map_width, map_height, output_directory)
             )
         );
 

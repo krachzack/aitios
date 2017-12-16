@@ -5,6 +5,8 @@ extern crate chrono;
 
 mod common;
 
+use std::fs::create_dir;
+
 #[test]
 fn buddha_room_bronze_test() {
     let directory = common::prepare_test_directory("buddha_room_bronze_test");
@@ -19,6 +21,13 @@ fn buddha_room_bronze_test() {
     mtl_file.set_extension("mtl");
     let mtl_file = mtl_file.to_str().unwrap();
 
+    let mut density_map_output_directory = directory.clone();
+    density_map_output_directory.push("density-maps");
+    create_dir(&density_map_output_directory).unwrap();
+
+    let density_map_output_directory = density_map_output_directory.to_str().unwrap();
+
+    let blent_map_output_directory = directory.to_str().unwrap();
 
     let input_path = "testdata/buddha-scene";
     let model_obj_path = format!("{}/buddha-scene.obj", input_path);
@@ -45,11 +54,12 @@ fn buddha_room_bronze_test() {
             0, // Index of substance that drives the blend
             "bronze", // material that gets changed
             "map_Kd", // map of the material that gets changed
-            "testdata/buddha-scene/weathered_bronze.png"
+            "testdata/buddha-scene/weathered_bronze.png",
+            blent_map_output_directory
         )
-        .add_effect_density_map(256, 256)
-        .add_effect_density_map(512, 512)
-        .add_effect_density_map(1024, 1024)
+        .add_effect_density_map(256, 256, density_map_output_directory)
+        .add_effect_density_map(512, 512, density_map_output_directory)
+        .add_effect_density_map(1024, 1024, density_map_output_directory)
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .iterations(1)
         .build()

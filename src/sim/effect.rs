@@ -25,7 +25,8 @@ pub struct Blend {
     subject_material_map: String,
     /// Material that the subject map should be blended towards
     blend_towards_tex_file: String,
-    material_directory: PathBuf
+    material_directory: PathBuf,
+    output_directory: PathBuf
 }
 
 impl Effect for Blend {
@@ -54,8 +55,11 @@ impl Effect for Blend {
                 }
             );
 
-            let target_filename = format!("testdata/{}-{}-{}-{}-weathered.png", entity_idx, entity.name, self.subject_material_name, self.subject_material_map);
-            info!("Writing effect texture {}...", target_filename);
+            let mut target_filename = self.output_directory.clone();
+            target_filename.push(format!("{}-{}-{}-{}-weathered", entity_idx, entity.name, self.subject_material_name, self.subject_material_map));
+            target_filename.set_extension("png");
+
+            info!("Writing effect texture {:?}...", target_filename);
             let fout = &mut File::create(target_filename).unwrap();
 
             image::ImageRgba8(blended_map).save(fout, image::PNG)
@@ -65,13 +69,14 @@ impl Effect for Blend {
 }
 
 impl Blend {
-    pub fn new(substance_idx: usize, material_directory: &Path, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str) -> Blend {
+    pub fn new(substance_idx: usize, material_directory: &Path, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str, output_directory: &Path) -> Blend {
         Blend {
             substance_idx,
             subject_material_name: String::from(subject_material_name),
             subject_material_map: String::from(subject_material_map),
             blend_towards_tex_file: String::from(blend_towards_tex_file),
-            material_directory: PathBuf::from(material_directory)
+            material_directory: PathBuf::from(material_directory),
+            output_directory: PathBuf::from(output_directory)
         }
     }
 
@@ -146,12 +151,13 @@ fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, enti
 
 pub struct DensityMap {
     texture_width: usize,
-    texture_height: usize
+    texture_height: usize,
+    output_directory: PathBuf,
 }
 
 impl DensityMap {
-    pub fn new(texture_width: usize, texture_height: usize) -> DensityMap {
-        DensityMap { texture_width, texture_height }
+    pub fn new(texture_width: usize, texture_height: usize, output_directory: &str) -> DensityMap {
+        DensityMap { texture_width, texture_height, output_directory: PathBuf::from(output_directory) }
     }
 }
 
@@ -169,7 +175,10 @@ impl Effect for DensityMap {
                 let texcoord_tree = build_surfel_texel_tree(surface, entity_idx);
 
                 (0..substance_count).map(move |substance_idx| {
-                    let filename = format!("testdata/{}-{}-substance-{}-{}x{}.png", entity_idx, e.name, substance_idx, tex_width, tex_height);
+                    let mut filename = self.output_directory.clone();
+                    filename.push(format!("{}-{}-substance-{}-{}x{}", entity_idx, e.name, substance_idx, tex_width, tex_height));
+                    filename.set_extension("png");
+
                     let tex_buf = image::ImageBuffer::from_fn(
                         tex_width, tex_height,
                         |x, y| {
@@ -193,9 +202,9 @@ impl Effect for DensityMap {
                 })
             });
 
-        for (filename, tex) in texes {
-            info!("Writing {}...", filename);
-            let fout = &mut File::create(filename).unwrap();
+        for (path, tex) in texes {
+            info!("Writing {:?}...", path);
+            let fout = &mut File::create(path).unwrap();
             image::ImageRgb8(tex).save(fout, image::PNG).unwrap();
         }
     }
