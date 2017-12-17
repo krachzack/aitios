@@ -1,5 +1,5 @@
 //!
-//! Contains functionality for triangles
+//! Contains functionality for triangles.
 //!
 
 use ::cgmath::Vector3;
@@ -13,6 +13,9 @@ use super::intersect::IntersectRay;
 use std::ops::Mul;
 use std::iter::Sum;
 
+/// The `Triangle<V>` type encapsulates three vertices.
+/// A vertex must implement `geom::vtx::Vertex` and hence has a position
+/// in 3D space.
 pub struct Triangle<V>
     where V : Vertex
 {

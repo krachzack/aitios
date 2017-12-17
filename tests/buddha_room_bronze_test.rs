@@ -7,6 +7,7 @@ mod common;
 
 use std::fs::create_dir;
 
+#[cfg_attr(not(feature = "expensive_tests"), ignore)]
 #[test]
 fn buddha_room_bronze_test() {
     let directory = common::prepare_test_directory("buddha_room_bronze_test");
@@ -51,14 +52,12 @@ fn buddha_room_bronze_test() {
                     .substances(&vec![0.0])
             }
         )
-        //.scene_substances(&vec![0.0])
         .add_source(|s| {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 2.0, 0.0)
                 .emission_count(80000)
         })
-        // TODO instead of changing a material, maybe we should change an object
         .add_effect_blend(
             0, // Index of substance that drives the blend
             "bronze", // material that gets changed

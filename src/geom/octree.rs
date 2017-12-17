@@ -301,9 +301,10 @@ mod test {
         )
     }
 
+    #[cfg_attr(not(feature = "expensive_tests"), ignore)]
     #[test]
     fn test_large_tree() {
-        let scene = Scene::load_from_file("testdata/buddha-scene/buddha-scene.obj");
+        let scene = Scene::load_from_file("test-scenes/buddha-scene/buddha-scene.obj");
         let tree : Octree<Triangle> = scene.triangles().collect();
 
         let tree_triangle_count = tree.entity_count();

@@ -12,10 +12,15 @@ use ::tobj::Material;
 
 use ::cgmath::Vector2;
 
+/// A trait for effects that mutate the scene using the information in an associated
+/// surface model.
 pub trait Effect {
     fn perform(&self, scene: &mut Scene, surface: &Surface);
 }
 
+/// An effect for blending a specific texture map, e.g. the diffuse color map
+/// towards another texture file, according to substance concentration in the
+/// surfels associated with each texel.
 pub struct Blend {
     /// Index of substance that drives the blend
     /// Density of 0 equals original texture, 1 equals the texture to blend to
@@ -180,6 +185,10 @@ fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, enti
         .collect()
 }
 
+/// An effect for writing density maps in a specific resolution to a preconfigured
+/// output directory. The effect will not mutate the scene and only create the density
+/// maps without associating them with the scene. The maps are for debugging purposes
+/// and can be set manually as the material.
 pub struct DensityMap {
     texture_width: usize,
     texture_height: usize,

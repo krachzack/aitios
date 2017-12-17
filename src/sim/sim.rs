@@ -1,3 +1,7 @@
+///! Contains the core particle tracing logic and invokes facilties
+/// to emit gammatons, perform effects on the scene and to serialize
+/// the scene in the end.
+
 use std::fs;
 use std::time::Instant;
 use std::path::PathBuf;
@@ -12,12 +16,22 @@ use ::sink::SceneSink;
 use super::ton::TonSource;
 use super::effect::Effect;
 
+/// Maintains a simulation on a scene with an associated surface
+/// model.
 pub struct Simulation {
+    /// The scene that is owned by the scene and will be modified when running the simulation
     scene: Scene,
+    /// The surface model, describing surface properties at point samples of the scene
     surface: Surface,
+    /// Amount of iterations to perform, each involving the tracing of newly emitted particles and
+    /// the performing of effects.
     iterations: u32,
+    /// Ton sources that will emit particles at the start of each iteration
     sources: Vec<TonSource>,
+    /// Effects that will be invoked at the end of each iteration
     effects: Vec<Box<Effect>>,
+    /// Scene sinks that will be invoked after the completion of the last iteration to serialize
+    /// scene or materials.
     scene_sinks: Vec<Box<SceneSink>>,
     /// Determines how much of a substance stored in a ton will be transferred to an interacted
     /// surfel.
@@ -54,6 +68,14 @@ impl Simulation {
         }
     }
 
+    /// Runs the simulation for the set amount of iterations. Each iteration
+    /// involves:
+    ///
+    /// * mutating the surface with particle tracing,
+    /// * applying effects to the scene with information from the mutated surface.
+    ///
+    /// After tracing is complete, the scene sinks will be invoked to serialize the
+    /// modified scene and materials.
     pub fn run(&mut self) {
         info!(
             "Running simulation with {} iteraions of {} particles each... ",
@@ -62,15 +84,15 @@ impl Simulation {
         );
 
         for _ in 0..self.iterations {
-            self.iterate();
+            self.trace_particles();
             self.perform_effects();
-            self.serialize_scene_to_sinks();
         }
 
+        self.serialize_scene_to_sinks();
         self.dump_hit_map();
     }
 
-    fn iterate(&mut self) {
+    fn trace_particles(&mut self) {
         info!("Building octree...  ");
         let before = Instant::now();
         let octree : Octree<_> = self.scene.triangles().collect();

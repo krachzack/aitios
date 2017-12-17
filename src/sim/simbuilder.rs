@@ -15,6 +15,49 @@ use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
 use super::effect::{Effect, Blend, DensityMap};
 
+/// Builds a simulation according to provided parameters and closures.
+///
+/// # Examples
+///
+/// The following example builds, but not runs, a simulation on
+/// `"test-scenes/buddha-scene/buddha-scene.obj"` where the diffuse map
+/// of the `"bronze"` material is blended towards an image file
+/// `"test-scenes/buddha-scene/weathered_bronze.png"`.
+///
+/// ```
+/// # #[cfg_attr(not(feature = "expensive_tests"), ignore)]
+/// use aitios::SimulationBuilder;
+///
+/// SimulationBuilder::new()
+///     .scene(
+///         "test-scenes/buddha-scene/buddha-scene.obj",
+///         |s| {
+///             s.surfels_per_sqr_unit(5000.0)
+///                 .delta_straight(1.0)
+///                 .substances(&vec![0.0])
+///         }
+///     )
+///     .add_source(|s| {
+///         s.p_straight(1.0)
+///             .substances(&vec![1.0])
+///             .point_shaped(0.0, 2.0, 0.0)
+///             .emission_count(40000)
+///     })
+///     .add_effect_blend(
+///         0, // Index of substance that drives the blend
+///         "bronze", // material that gets changed
+///         "map_Kd", // map of the material that gets changed
+///         "test-scenes/buddha-scene/weathered_bronze.png",
+///         "output/weathered_bronze.png"
+///     )
+///     .add_scene_sink_obj_mtl(
+///         "output/buddha-scene-weathered.obj",
+///         "output/buddha-scene-weathered.mtl"
+///     )
+///     .ton_to_surface_interaction_weight(0.05)
+///     .iterations(1)
+///     .build();
+/// ```
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder
     scene: Scene,
