@@ -7,7 +7,6 @@ pub use self::builder::SurfaceBuilder;
 use std::io;
 
 use ::cgmath::{Vector2, Vector3};
-use ::rand;
 use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 
 use super::scene::Scene;

@@ -2,6 +2,7 @@ use super::*;
 
 use ::cgmath::{Vector2, Vector3};
 use ::kdtree::kdtree::Kdtree;
+use ::rand;
 
 pub struct SurfaceBuilder {
     samples: Vec<Surfel>,

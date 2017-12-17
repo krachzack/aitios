@@ -60,6 +60,13 @@ impl<V> Triangle<V>
         (s * (s - a) * (s - b) * (s - c)).sqrt()
     }
 
+    pub fn center(&self) -> Vector3<f32> {
+        let one_over_three =  1.0 / 3.0;
+        self.vertices.iter()
+            .map(|v| one_over_three * v.position())
+            .sum()
+    }
+
     /// Compute barycentric coordinates [u, v, w] for
     /// the closest point to p on the triangle.
     pub fn barycentric_at(&self, p: Vector3<f32>) -> [f32; 3] {
@@ -92,6 +99,63 @@ impl<V> Triangle<V>
             .zip(values)
             .map(|(w, v)| v * *w)
             .sum()
+    }
+}
+
+impl<V> Triangle<V>
+    where V : Vertex + Clone + Mul<f32> + Sum<<V as Mul<f32>>::Output>
+{
+    /// Synthesizes a new vertex at the given position.
+    /// The position is converted to barycentric coordinates and
+    /// the vertices blended together
+    pub fn interpolate_vertex_at_position(&self, position: Vector3<f32>) -> V {
+        self.interpolate_vertex_at_bary(self.barycentric_at(position))
+    }
+
+    /// Synthesizes a new vertex at the given position.
+    /// The position is converted to barycentric coordinates and
+    /// the vertices blended together
+    pub fn interpolate_vertex_at_bary(&self, weights: [f32; 3]) -> V {
+        let vertices = self.vertices.iter();
+
+        weights.iter()
+            .zip(vertices)
+            .map(|(w, v)| v.clone() * *w)
+            .sum()
+    }
+
+    pub fn split_at_edge_midpoints(&self) -> [Triangle<V>; 4] {
+        let mids : [V; 3] = [
+            self.interpolate_vertex_at_bary([0.5, 0.5, 0.0]),
+            self.interpolate_vertex_at_bary([0.0, 0.5, 0.5]),
+            self.interpolate_vertex_at_bary([0.5, 0.0, 0.5])
+        ];
+
+        let verts = &self.vertices;
+        let (outer_tri0, outer_tri1, outer_tri2) = {
+            let mut outer_triangles = (0..mids.len()).map(|mid_idx0| {
+                let vert0_mid = mids[mid_idx0].clone();
+                let vert1_vert = verts[(mid_idx0 + 1) % 3].clone();
+                let vert2_mid = mids[(mid_idx0 + 1) % 3].clone();
+
+                Triangle::new(vert0_mid, vert1_vert, vert2_mid)
+            });
+
+            (
+                outer_triangles.next().unwrap(),
+                outer_triangles.next().unwrap(),
+                outer_triangles.next().unwrap()
+            )
+        };
+
+        let inner_triangle = Triangle { vertices: mids };
+
+        [
+            inner_triangle,
+            outer_tri0,
+            outer_tri1,
+            outer_tri2
+        ]
     }
 }
 
@@ -195,6 +259,62 @@ mod test {
             point_on_there,
             tri.interpolate_at(point_on_there, |v| v.position()),
             "Interpolating the position value should yield the same point"
+        );
+    }
+
+    #[test]
+    fn test_splitting_at_edge_midpoints() {
+        // A triangle around the origin
+        let tri = Triangle::new(
+            Vector3::new(-1.0, -1.0, 0.0),
+            Vector3::new(1.0, -1.0, 0.0),
+            Vector3::new(0.0, 1.0, 0.0)
+        );
+
+        let triangles = tri.split_at_edge_midpoints();
+        assert_eq!(4, triangles.len());
+
+        // Three triangles should contain each edge midpoint as a vertex
+        assert_eq!(
+            3,
+            triangles.iter()
+                .filter(|t| {
+                    t.vertices.iter()
+                        .any(|v|
+                            v.position().x == -0.5 &&
+                            v.position().y == 0.0
+                        )
+
+                })
+                .count()
+        );
+
+        assert_eq!(
+            3,
+            triangles.iter()
+                .filter(|t| {
+                    t.vertices.iter()
+                        .any(|v|
+                            v.position().x == 0.5 &&
+                            v.position().y == 0.0
+                        )
+
+                })
+                .count()
+        );
+
+        assert_eq!(
+            3,
+            triangles.iter()
+                .filter(|t| {
+                    t.vertices.iter()
+                        .any(|v|
+                            v.position().x == 0.0 &&
+                            v.position().y == -1.0
+                        )
+
+                })
+                .count()
         );
     }
 }
