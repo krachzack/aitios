@@ -25,7 +25,8 @@ use super::effect::{Effect, Blend, DensityMap};
 /// `"test-scenes/buddha-scene/weathered_bronze.png"`.
 ///
 /// ```
-/// # #[cfg_attr(not(feature = "expensive_tests"), ignore)]
+/// # #[cfg(feature = "expensive_tests")]
+/// # {
 /// use aitios::SimulationBuilder;
 ///
 /// SimulationBuilder::new()
@@ -57,6 +58,7 @@ use super::effect::{Effect, Blend, DensityMap};
 ///     .ton_to_surface_interaction_weight(0.05)
 ///     .iterations(1)
 ///     .build();
+/// # }
 /// ```
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder
