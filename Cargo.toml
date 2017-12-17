@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["PhilippStadler"]
 
 [features]
-default = []
+default = ["expensive_tests"]
 expensive_tests = []
 
 [dependencies]
