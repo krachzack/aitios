@@ -156,26 +156,6 @@ impl<T> Octree<T>
             children
         }
     }
-
-    /*fn filter_intersect<'a>(&'a self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Box<Iterator<Item = &'a T> + 'a> {
-
-        if self.bounds.intersects_ray(ray_origin, ray_direction) {
-            //self.data.iter()
-              //  .filter(|e| e.bounds().intersects_ray(ray_origin, ray_direction));
-        }
-
-        self.children.iter()
-            .filter_map(|c| c.as_ref().map(move |c| {
-                if c.bounds.intersects_ray(ray_origin, ray_direction) {
-                    c
-                } else {
-                    None
-                }
-            }));
-
-        Box::new(self.data.iter()
-                .filter(move |e| e.bounds().intersects_ray(ray_origin, ray_direction)))
-    }*/
 }
 
 impl<T> FromIterator<T> for Octree<T>

@@ -161,7 +161,7 @@ impl KdtreePointTrait for SurfelTexelIndex {
     }
 }
 
-fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, entity_idx: usize, bin_count_x: usize, bin_count_y: usize) -> Vec<f32> {
+/*fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, entity_idx: usize, bin_count_x: usize, bin_count_y: usize) -> Vec<f32> {
     let texcoord_tree = build_surfel_texel_tree(surface, entity_idx);
 
     // (0,0), (1,0), (2,0), [...], (bin_count_x-1, bin_count_y-1)
@@ -183,7 +183,7 @@ fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, enti
         // 1:1 mapping of density to blend factor, but clamp values over 1.0
         .map(|density| if density > 1.0 { 1.0 } else { 0.0 })
         .collect()
-}
+}*/
 
 /// An effect for writing density maps in a specific resolution to a preconfigured
 /// output directory. The effect will not mutate the scene and only create the density
