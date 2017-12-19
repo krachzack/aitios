@@ -156,6 +156,7 @@ struct SurfelTexelIndex {
 }
 
 impl KdtreePointTrait for SurfelTexelIndex {
+    #[inline]
     fn dims(&self) -> &[f64] {
         &self.texcoords
     }

@@ -2,7 +2,7 @@ use super::*;
 
 use ::cgmath::{Vector2, Vector3};
 use ::kdtree::kdtree::Kdtree;
-use ::rand;
+use super::sampling::throw_darts;
 
 pub struct SurfaceBuilder {
     samples: Vec<Surfel>,
@@ -99,54 +99,37 @@ impl SurfaceBuilder {
         let delta_flow = self.delta_flow;
         let substances = self.substances.clone();
 
-        let surfels_per_sqr_unit = self.surfels_per_sqr_unit;
-
         self.samples.extend(
-            scene.triangles()
-                .flat_map(|t| {
-                    let surfel_count = (surfels_per_sqr_unit * t.area()).ceil() as i32;
-                    let p0 = t.vertices[0].position;
-                    let p1 = t.vertices[1].position;
-                    let p2 = t.vertices[2].position;
-                    let entity_idx = t.vertices[0].entity_idx;
-                    let substances = substances.clone();
+            throw_darts(
+                scene.triangles(),
+                0.1, // target distance of points
+                |t, position| {
+                    let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
 
-                    (0..surfel_count).map(move |_| {
-                        let u = rand::random::<f32>();
-                        let v = rand::random::<f32>();
-                        let position = (1.0 - u.sqrt()) * p0 +
-                                        (u.sqrt() * (1.0 - v)) * p1 +
-                                        (u.sqrt() * v) * p2;
+                    // TODO maybe add warning if UVs degenerate
+                    if texcoords.x < 0.0 {
+                        texcoords.x = 0.0;
+                    } else if texcoords.x > 1.0 {
+                        texcoords.x = 1.0;
+                    }
 
-                        let mut texcoords = t.interpolate_at(
-                            position,
-                            |v| v.texcoords
-                        );
+                    if texcoords.y < 0.0 {
+                        texcoords.y = 0.0;
+                    } else if texcoords.y > 1.0 {
+                        texcoords.y = 1.0;
+                    }
 
-                        // TODO maybe add warning if UVs degenerate
-                        if texcoords.x < 0.0 {
-                            texcoords.x = 0.0;
-                        } else if texcoords.x > 1.0 {
-                            texcoords.x = 1.0;
-                        }
-
-                        if texcoords.y < 0.0 {
-                            texcoords.y = 0.0;
-                        } else if texcoords.y > 1.0 {
-                            texcoords.y = 1.0;
-                        }
-
-                        Surfel {
-                            position,
-                            texcoords,
-                            entity_idx,
-                            delta_straight: delta_straight,
-                            delta_parabolic: delta_parabolic,
-                            delta_flow: delta_flow,
-                            substances: substances.clone()
-                        }
-                    })
-                })
+                    Surfel {
+                        position,
+                        texcoords,
+                        entity_idx: t.vertices[0].entity_idx,
+                        delta_straight: delta_straight,
+                        delta_parabolic: delta_parabolic,
+                        delta_flow: delta_flow,
+                        substances: substances.clone()
+                    }
+                }
+            )
         );
 
         self

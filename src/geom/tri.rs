@@ -10,12 +10,13 @@ use super::spatial::Spatial;
 use super::aabb::Aabb;
 use super::intersect::IntersectRay;
 
-use std::ops::Mul;
+use std::ops::{Mul, Add};
 use std::iter::Sum;
 
 /// The `Triangle<V>` type encapsulates three vertices.
 /// A vertex must implement `geom::vtx::Vertex` and hence has a position
 /// in 3D space.
+#[derive(Copy, Clone)]
 pub struct Triangle<V>
     where V : Vertex
 {
@@ -100,10 +101,17 @@ impl<V> Triangle<V>
             .map(|(w, v)| v * *w)
             .sum()
     }
+
+    /// Checks if the triangle is completely inside the given sphere
+    pub fn is_inside_sphere(&self, center: Vector3<f32>, radius: f32) -> bool {
+        let radius_sqr = radius * radius;
+        self.vertices.iter()
+            .all(|v| center.distance2(v.position()) < radius_sqr)
+    }
 }
 
 impl<V> Triangle<V>
-    where V : Vertex + Clone + Mul<f32> + Sum<<V as Mul<f32>>::Output>
+    where V : Vertex + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
     /// Synthesizes a new vertex at the given position.
     /// The position is converted to barycentric coordinates and
@@ -118,10 +126,13 @@ impl<V> Triangle<V>
     pub fn interpolate_vertex_at_bary(&self, weights: [f32; 3]) -> V {
         let vertices = self.vertices.iter();
 
-        weights.iter()
+        let mut weighted_vertices = weights.iter()
             .zip(vertices)
-            .map(|(w, v)| v.clone() * *w)
-            .sum()
+            .map(|(w, v)| v.clone() * *w);
+
+        weighted_vertices.next().unwrap() +
+        weighted_vertices.next().unwrap() +
+        weighted_vertices.next().unwrap()
     }
 
     pub fn split_at_edge_midpoints(&self) -> [Triangle<V>; 4] {
