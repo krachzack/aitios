@@ -68,6 +68,22 @@ impl<V> Triangle<V>
             .sum()
     }
 
+    /// Gets the center of a sphere that runs through all of the three
+    /// triangle vertices.
+    pub fn circumcenter(&self) -> Vector3<f32> {
+        let (a, b, c) = (self.vertices[0].position(), self.vertices[1].position(), self.vertices[2].position());
+
+        let ac = c - a;
+        let ab = b - a;
+        let ab_cross_ac = ab.cross(ac);
+
+        // this is the vector from a TO the circumsphere center
+        let to_circumsphere_center = (ab_cross_ac.cross(ab) * ac.magnitude2() + ac.cross( ab_cross_ac )*ab.magnitude2()) /
+            (2.0 * ab_cross_ac.magnitude2());
+
+        a +  to_circumsphere_center
+    }
+
     /// Compute barycentric coordinates [u, v, w] for
     /// the closest point to p on the triangle.
     pub fn barycentric_at(&self, p: Vector3<f32>) -> [f32; 3] {

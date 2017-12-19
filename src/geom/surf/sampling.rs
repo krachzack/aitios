@@ -54,20 +54,21 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
         ))
         .collect();
 
-    info!("Collected active triangles...");
+    info!("Collected {} active triangles...", active_triangles.len());
 
     let mut generated_samples = Vec::new();
 
-    let bin_count = 16;
+    let bin_count = 22;
     let mut active_triangles = TriangleBins::new(active_triangles, bin_count);
     // Empty kdtree not allowed, so we use option
     let mut placed_samples : Option<Kdtree<SparseVertex>> = None;
-    // Exit condititon, so the active triangles get empty eventually
-    let min_fragment_area = 0.0001;
+    // Exit condititon, discard fragments with area smaller than this so the active triangles get
+    // empty eventually and splitting stops at some point
+    let min_fragment_area = 0.5 * minimum_distance * minimum_distance * f32::consts::PI;
 
 
-    info!("Throwing darts...");
-    while active_triangles.triangle_count() > 0 {
+    info!("Throwing darts on {} active triangles with a minimum point distance of {}...", active_triangles.triangle_count(), minimum_distance);
+    while active_triangles.triangle_count() > 20 {
         let tri = active_triangles.sample_triangle();
         let candidate_point = sample_on_triangle(&tri);
 
@@ -97,13 +98,20 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
                 )
             );
 
-            trace!("Generated {} samples...", generated_samples.len());
+            trace!("Generated {} samples, {} triangles left...", generated_samples.len(), active_triangles.triangle_count());
         }
 
         let is_covered = |tri : &Triangle<SparseVertex>| {
+            let center = tri.center();
+            let center = SparseVertex {
+                mother_triangle_idx: None,
+                position: [center.x as f64, center.y as f64, center.z as f64]
+            };
+
             match placed_samples.as_ref() {
                 Some(placed_samples) => tri.is_inside_sphere(
-                    placed_samples.nearest_search(&candidate_point).position(),
+                    // Search for nearest point to the center of the triangle
+                    placed_samples.nearest_search(&center).position(),
                     minimum_distance
                 ),
                 None => false
@@ -264,7 +272,10 @@ fn partition_triangles(
         if bin_idx < bin_count {
             bins[bin_idx].push(triangle);
         } else {
-            //warn!("Ignoring triangle with too small area {} during initial binning", area);
+            // During intitial binning, do not filter out very small triangles
+            //bins[bin_idx].push(triangle);
+
+            warn!("Ignoring triangle with too small area {} during initial binning", area);
         }
     }
 

@@ -42,7 +42,7 @@ fn buddha_room_bronze_test() {
     surfels_path.set_extension("obj");
 
     aitios::SimulationBuilder::new()
-        .ton_to_surface_interaction_weight(1.0)
+        .ton_to_surface_interaction_weight(0.2)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
@@ -56,7 +56,7 @@ fn buddha_room_bronze_test() {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 2.0, 0.0)
-                .emission_count(80000)
+                .emission_count(5000)
         })
         .add_effect_blend(
             0, // Index of substance that drives the blend

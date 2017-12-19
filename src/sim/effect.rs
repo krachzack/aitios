@@ -54,7 +54,7 @@ impl Effect for Blend {
         let materials = &mut scene.materials;
 
         for (entity_idx, entity) in entities.iter_mut().enumerate().filter(|args| args.1.material_idx == subject_material_idx) {
-            let blend_factors = blend_factors_by_avg_local_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
+            let blend_factors = blend_factors_by_closest_surfel(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
 
             let blended_map = image::ImageBuffer::from_fn(
                 subject_map.width(), subject_map.height(),
@@ -162,7 +162,7 @@ impl KdtreePointTrait for SurfelTexelIndex {
     }
 }
 
-/*fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, entity_idx: usize, bin_count_x: usize, bin_count_y: usize) -> Vec<f32> {
+fn blend_factors_by_closest_surfel(surface: &Surface, substance_idx: usize, entity_idx: usize, bin_count_x: usize, bin_count_y: usize) -> Vec<f32> {
     let texcoord_tree = build_surfel_texel_tree(surface, entity_idx);
 
     // (0,0), (1,0), (2,0), [...], (bin_count_x-1, bin_count_y-1)
@@ -184,7 +184,7 @@ impl KdtreePointTrait for SurfelTexelIndex {
         // 1:1 mapping of density to blend factor, but clamp values over 1.0
         .map(|density| if density > 1.0 { 1.0 } else { 0.0 })
         .collect()
-}*/
+}
 
 /// An effect for writing density maps in a specific resolution to a preconfigured
 /// output directory. The effect will not mutate the scene and only create the density

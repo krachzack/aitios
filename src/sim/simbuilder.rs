@@ -24,9 +24,7 @@ use super::effect::{Effect, Blend, DensityMap};
 /// of the `"bronze"` material is blended towards an image file
 /// `"test-scenes/buddha-scene/weathered_bronze.png"`.
 ///
-/// ```
-/// # #[cfg(feature = "expensive_tests")]
-/// # {
+/// ```rust,no_run
 /// use aitios::SimulationBuilder;
 ///
 /// SimulationBuilder::new()
@@ -58,7 +56,6 @@ use super::effect::{Effect, Blend, DensityMap};
 ///     .ton_to_surface_interaction_weight(0.05)
 ///     .iterations(1)
 ///     .build();
-/// # }
 /// ```
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder
