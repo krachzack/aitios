@@ -1,4 +1,3 @@
-use ::geom::tri::Triangle;
 use ::geom::vtx::Vertex;
 
 use ::cgmath::Vector3;
