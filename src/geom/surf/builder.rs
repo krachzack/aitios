@@ -14,7 +14,7 @@ pub struct SurfaceBuilder {
     delta_flow: f32,
     /// Holds the initial amount of substances as numbers in the interval 0..1
     substances: Vec<f32>,
-    surfels_per_sqr_unit: f32,
+    min_sample_distance: f32,
 }
 
 impl SurfaceBuilder {
@@ -25,7 +25,7 @@ impl SurfaceBuilder {
             delta_parabolic: 0.0,
             delta_flow: 0.0,
             substances: Vec::new(),
-            surfels_per_sqr_unit: 10000.0
+            min_sample_distance: 0.1
         }
     }
 
@@ -52,8 +52,8 @@ impl SurfaceBuilder {
         self
     }
 
-    pub fn surfels_per_sqr_unit(mut self, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
-        self.surfels_per_sqr_unit = surfels_per_sqr_unit;
+    pub fn min_sample_distance(mut self, min_sample_distance: f32) -> SurfaceBuilder {
+        self.min_sample_distance = min_sample_distance;
         self
     }
 
@@ -102,7 +102,7 @@ impl SurfaceBuilder {
         self.samples.extend(
             throw_darts(
                 scene.triangles(),
-                0.1, // target distance of points
+                self.min_sample_distance,
                 |t, position| {
                     let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
 

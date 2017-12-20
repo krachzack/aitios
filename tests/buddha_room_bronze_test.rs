@@ -47,7 +47,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.surfels_per_sqr_unit(5000.0)
+                s.min_sample_distance(1.0)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
@@ -56,7 +56,7 @@ fn buddha_room_bronze_test() {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 2.0, 0.0)
-                .emission_count(5000)
+                .emission_count(20000)
         })
         .add_effect_blend(
             0, // Index of substance that drives the blend

@@ -13,6 +13,8 @@ use super::intersect::IntersectRay;
 use std::ops::{Mul, Add};
 use std::iter::Sum;
 
+use ::rand;
+
 /// The `Triangle<V>` type encapsulates three vertices.
 /// A vertex must implement `geom::vtx::Vertex` and hence has a position
 /// in 3D space.
@@ -43,9 +45,18 @@ impl<V> Triangle<V>
         }
     }
 
+    /// ||(V1 −V0)×(V2 −V0)||/2
+    pub fn area(&self) -> f32 {
+        let v0 = self.vertices[0].position();
+        let v1 = self.vertices[1].position();
+        let v2 = self.vertices[2].position();
+
+        0.5 * ((v1 - v0).cross(v2 - v0)).magnitude()
+    }
+
     /// Calculates the area of the triangle specified with the three vertices
     /// using Heron's formula
-    pub fn area(&self) -> f32 {
+    /*pub fn area(&self) -> f32 {
         let p0 = self.vertices[0].position();
         let p1 = self.vertices[1].position();
         let p2 = self.vertices[2].position();
@@ -59,7 +70,7 @@ impl<V> Triangle<V>
         let s = (a + b + c) / 2.0;
 
         (s * (s - a) * (s - b) * (s - c)).sqrt()
-    }
+    }*/
 
     pub fn center(&self) -> Vector3<f32> {
         let one_over_three =  1.0 / 3.0;
@@ -129,6 +140,19 @@ impl<V> Triangle<V>
 impl<V> Triangle<V>
     where V : Vertex + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
+    pub fn sample_position(&self) -> Vector3<f32> {
+        let positions = self.vertices.iter().map(|v| v.position());
+        random_bary().iter()
+            .zip(positions)
+            .map(|(&bary, vtx)| bary * vtx)
+            .fold(Vector3::zero(), |acc, vtx| acc + vtx)
+    }
+
+    /// Interpolates a vertex on a random position on the triangle
+    pub fn sample_vertex(&self) -> V {
+        self.interpolate_vertex_at_bary(random_bary())
+    }
+
     /// Synthesizes a new vertex at the given position.
     /// The position is converted to barycentric coordinates and
     /// the vertices blended together
@@ -229,6 +253,19 @@ impl<V> IntersectRay for Triangle<V>
 
         Some(t)
     }
+}
+
+pub fn random_bary() -> [f32; 3] {
+    let u = rand::random::<f32>();
+    let v = rand::random::<f32>();
+
+    let sqrt_u = u.sqrt();
+
+    [
+        1.0 - sqrt_u,
+        (sqrt_u * (1.0 - v)),
+        (sqrt_u * v)
+    ]
 }
 
 #[cfg(test)]

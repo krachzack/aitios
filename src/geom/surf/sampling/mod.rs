@@ -1,3 +1,6 @@
+mod vtx;
+
+use self::vtx::SparseVertex;
 
 use ::geom::tri::Triangle;
 use ::geom::vtx::Vertex;
@@ -7,21 +10,23 @@ use ::rand::Rng;
 
 use ::cgmath::Vector3;
 
-use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
-
-use std::ops::{Mul, Add};
 use std::f32;
 
-pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and_sample_pos_to_sample: F) -> Vec<S>
+use ::kdtree::kdtree::Kdtree;
+
+/// Generates a vector of surface samples using dart throwing.
+///
+/// To create a sample from a chosen surface position, the passed function is invoked.
+pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, triangle_and_sample_pos_to_sample: F) -> Vec<S>
     where I : IntoIterator<Item = Triangle<V>>,
         V : Vertex,
         F : Fn(&Triangle<V>, Vector3<f32>) -> S
 {
     info!("Preparing dart throwing...");
-    let min_distance_sqr = (minimum_distance as f64) * (minimum_distance as f64);
 
     // This vector is going to be huge but we need the original
-    // triangles later for interpolation
+    // triangles later for interpolation, maybe this should instead
+    // be a reference to an indexed triangle structure
     let fat_triangles : Vec<_> = triangles.into_iter().collect();
 
     let active_triangles : Vec<_> = fat_triangles.iter()
@@ -64,17 +69,16 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
     let mut placed_samples : Option<Kdtree<SparseVertex>> = None;
     // Exit condititon, discard fragments with area smaller than this so the active triangles get
     // empty eventually and splitting stops at some point
-    let min_fragment_area = 0.5 * minimum_distance * minimum_distance * f32::consts::PI;
+    let min_fragment_area = (0.5 * minimum_sample_distance) * (0.5 * minimum_sample_distance) * f32::consts::PI;
 
-
-    info!("Throwing darts on {} active triangles with a minimum point distance of {}...", active_triangles.triangle_count(), minimum_distance);
+    info!("Throwing darts on {} active triangles with a minimum sample distance of {}...", active_triangles.triangle_count(), minimum_sample_distance);
     while active_triangles.triangle_count() > 20 {
         let tri = active_triangles.sample_triangle();
-        let candidate_point = sample_on_triangle(&tri);
+        let candidate_point = tri.sample_vertex();
 
         let meets_minimum_distance_requirement = {
             if let Some(placed_samples) = placed_samples.as_ref() {
-                placed_samples.distance_squared_to_nearest(&candidate_point) > min_distance_sqr
+                !placed_samples.has_neighbor_in_range(&candidate_point, minimum_sample_distance as f64)
             } else {
                 // No point added yet, good to go for the first point
                 true
@@ -87,7 +91,7 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
                 placed_samples = Some(Kdtree::new(&mut points));
             } else {
                 if let Some(placed_samples) = placed_samples.as_mut() {
-                    placed_samples.insert_node(candidate_point);
+                    placed_samples.insert_nodes_and_rebuild(&mut [ candidate_point ]);
                 }
             }
 
@@ -112,7 +116,7 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
                 Some(placed_samples) => tri.is_inside_sphere(
                     // Search for nearest point to the center of the triangle
                     placed_samples.nearest_search(&center).position(),
-                    minimum_distance
+                    0.5 * minimum_sample_distance
                 ),
                 None => false
             }
@@ -131,25 +135,6 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_distance: f32, triangle_and
     info!("Done throwing darts!");
 
     generated_samples
-
-    /*let area_sum = initial_active_triangles.iter()
-        .map(|t| t.area())
-        .sum::<f32>();*/
-
-
-
-
-
-    // 1. make active list of all triangles (logarithmicly binned by area)
-    // 2. initialize empty point set
-    // 3. throw darts
-    // 3.1 select from active list with probability proportional to area
-    // 3.2 choose random point on triangle
-    // 3.3 add to point set if random point meets minimum distance requirement
-    // 3.4 whether point generated or not, check if fragment is covered by any single point in the set
-    // 3.4.1 If covered, remove from active list
-    // 3.4.2 If not covered, remove from active list but split into smaller fragments and add them to active list instead
-    // 3.5 terminate if no more active fragment
 }
 
 struct TriangleBins {
@@ -282,91 +267,21 @@ fn partition_triangles(
     (bins, max_area)
 }
 
-fn sample_on_triangle<V>(triangle: &Triangle<V>) -> V
+/*fn sample_on_triangle<V>(triangle: &Triangle<V>) -> V
     where V : Vertex + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
     let weights = {
         let u = rand::random::<f32>();
         let v = rand::random::<f32>();
 
+        let sqrt_u = u.sqrt();
+
         [
-            1.0 - u.sqrt(),
-            (u.sqrt() * (1.0 - v)),
-            (u.sqrt() * v)
+            1.0 - sqrt_u,
+            (sqrt_u * (1.0 - v)),
+            (sqrt_u * v)
         ]
     };
 
     triangle.interpolate_vertex_at_bary(weights)
-}
-
-/// Vertex consisting of position and a reference to the triangle that
-/// this vertex originated from. By having a small vertex type, we can
-/// more cheaply create new triangles.
-#[derive(Copy, Clone)]
-struct SparseVertex {
-    mother_triangle_idx: Option<usize>,
-    position: [f64; 3]
-}
-
-/*impl<'a> Copy for SparseVertex<'a> {}
-
-impl<'a> Clone for SparseVertex<'a> {
-    fn clone(&self) -> Self {
-        *self
-        /*SparseVertex {
-            mother_triangle: self.mother_triangle,
-            position: self.position
-        }*/
-    }
 }*/
-
-impl PartialEq for SparseVertex {
-    fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
-    }
-}
-
-impl Vertex for SparseVertex {
-    fn position(&self) -> Vector3<f32> {
-        Vector3::new(self.position[0] as f32, self.position[1] as f32, self.position[2] as f32)
-    }
-}
-
-impl Mul<f32> for SparseVertex {
-    type Output = SparseVertex;
-
-    fn mul(self, scalar: f32) -> Self::Output {
-        SparseVertex {
-            mother_triangle_idx: self.mother_triangle_idx,
-            position: [
-                self.position[0] * (scalar as f64),
-                self.position[1] * (scalar as f64),
-                self.position[2] * (scalar as f64)
-            ]
-        }
-    }
-}
-
-impl Add for SparseVertex {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        // Mother riangle is taken from lhs, but is assumed
-        // to by identical for rhs
-        SparseVertex {
-            mother_triangle_idx: self.mother_triangle_idx,
-            position: [
-                self.position[0] + rhs.position[0],
-                self.position[1] + rhs.position[1],
-                self.position[2] + rhs.position[2]
-            ]
-        }
-    }
-}
-
-impl KdtreePointTrait for SparseVertex {
-    #[inline]
-    fn dims(&self) -> &[f64] {
-        &self.position
-    }
-}
