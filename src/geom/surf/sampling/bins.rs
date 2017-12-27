@@ -10,6 +10,7 @@ use std::f32;
 pub struct TriangleBins {
     bins: Vec<Vec<Triangle<SparseVertex>>>,
     bin_areas: Vec<f32>,
+    bin_max_areas: Vec<f32>,
     bin_areas_sum: f32,
     first_bin_max_area: f32
 }
@@ -29,29 +30,36 @@ impl TriangleBins {
             })
             .collect();
 
+        let bin_max_areas = (0..bin_count)
+            .map(|bin_idx| first_bin_max_area * (2.0 as f32).powi(-(bin_idx as i32)))
+            .collect();
+
         let bin_areas_sum = bin_areas.iter()
             .sum();
 
-        TriangleBins { bins, bin_areas, bin_areas_sum, first_bin_max_area }
+        debug!("Bin max areas {:?}", bin_max_areas);
+        debug!("Bin areas {:?}", bin_areas);
+
+        TriangleBins { bins, bin_areas, bin_max_areas, bin_areas_sum, first_bin_max_area }
     }
 
     fn bin_max_area(&self, of_bin_with_idx: usize) -> f32 {
-        self.first_bin_max_area * (2.0 as f32).powi(-(of_bin_with_idx as i32))
+        self.bin_max_areas[of_bin_with_idx]
     }
 
     pub fn push(&mut self, tri: Triangle<SparseVertex>) {
         let area = tri.area();
-        assert!(area <= self.first_bin_max_area, "{}", self.bins.iter()
-            .map(|b| b.len())
-            .sum::<usize>());
-        let bin_idx = (self.first_bin_max_area / tri.area()).log2() as usize;
+        assert!(area <= self.first_bin_max_area);
+        let bin_idx = (self.first_bin_max_area / area).log2() as usize;
         if bin_idx < self.bins.len() {
             self.bins[bin_idx].push(tri);
-            self.bin_areas[bin_idx] = self.bins[bin_idx].iter()
+            self.bin_areas[bin_idx] += area;
+            self.bin_areas_sum += area;
+            /*self.bin_areas[bin_idx] = self.bins[bin_idx].iter()
                     .map(|t| t.area())
                     .sum();
 
-            self.bin_areas_sum = self.bin_areas.iter().sum();
+            self.bin_areas_sum = self.bin_areas.iter().sum();*/
         }
     }
 
@@ -73,6 +81,10 @@ impl TriangleBins {
 
             if rng.next_f32() < acceptance_probability {
                 let random_tri = self.bins[bin_idx].swap_remove(random_tri_idx);
+
+                //let area = random_tri.area();
+                //self.bin_areas[bin_idx] -= area;
+                //self.bin_areas_sum -= area;
 
                 self.bin_areas[bin_idx] = self.bins[bin_idx].iter()
                     .map(|t| t.area())
@@ -97,7 +109,7 @@ impl TriangleBins {
 
         for (idx, area) in self.bin_areas.iter().enumerate() {
             r -= area;
-            if r <= 0.0 {
+            if r < 0.0 {
                 return idx;
             }
         }

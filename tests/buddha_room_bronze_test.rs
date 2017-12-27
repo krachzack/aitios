@@ -47,7 +47,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(1.0)
+                s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
@@ -75,6 +75,7 @@ fn buddha_room_bronze_test() {
         //.add_effect_density_map(256, 256, density_map_output_directory)
         //.add_effect_density_map(512, 512, density_map_output_directory)
         .add_effect_density_map(1024, 1024, density_map_output_directory)
+        .add_effect_density_map(4096, 4096, density_map_output_directory)
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .hit_map_path(hit_map_path)
         .iterations(1)

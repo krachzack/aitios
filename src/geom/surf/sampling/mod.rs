@@ -1,17 +1,21 @@
 mod vtx;
 mod bins;
+mod darts;
 
 use self::vtx::SparseVertex;
 use self::bins::TriangleBins;
+use self::darts::Darts;
 
 use ::geom::tri::Triangle;
 use ::geom::vtx::Vertex;
 
 use ::cgmath::Vector3;
+use ::cgmath::prelude::*;
 
 use ::kdtree::kdtree::Kdtree;
 
 use std::f32::consts::PI;
+
 
 /// Generates a vector of surface samples using dart throwing.
 ///
@@ -21,7 +25,15 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
         V : Vertex,
         F : Fn(&Triangle<V>, Vector3<f32>) -> S
 {
-    info!("Preparing dart throwing...");
+    let fat_triangles : Vec<_> = triangles.into_iter().collect();
+
+    Darts::new(fat_triangles.iter(), minimum_sample_distance)
+        .take(20000)
+        .map(|v| triangle_and_sample_pos_to_sample(&fat_triangles[v.mother_triangle_idx.unwrap()], v.position()))
+        .collect()
+
+
+    /*info!("Preparing dart throwing...");
 
     // This vector is going to be huge but we need the original
     // triangles later for interpolation, maybe this should instead
@@ -66,9 +78,18 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
     let mut active_triangles = TriangleBins::new(active_triangles, bin_count);
     // Empty kdtree not allowed, so we use option
     let mut placed_samples : Option<Kdtree<SparseVertex>> = None;
+    // This buffers nodes waiting to be inserted so we dont have to rebuild the tree as much
+    let placed_samples_pending_max_len = 128;
+    let mut placed_samples_pending : Vec<SparseVertex> = Vec::with_capacity(placed_samples_pending_max_len);
     // Exit condititon, discard fragments with area smaller than this so the active triangles get
     // empty eventually and splitting stops at some point
     let min_fragment_area = (0.5 * minimum_sample_distance) * (0.5 * minimum_sample_distance) * PI;
+
+
+    // !!!
+    // TODO KEEP LIST OF 128 SAMPLES FOR SLOW DISTANCE CHECK AND ONLY REBUILD TREE WHEN FULL
+    // !!!
+
 
     info!("Throwing darts on {} active triangles with a minimum sample distance of {}...", active_triangles.triangle_count(), minimum_sample_distance);
     while active_triangles.triangle_count() > 20 {
@@ -76,22 +97,29 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
         let candidate_point = tri.sample_vertex();
 
         let meets_minimum_distance_requirement = {
-            if let Some(placed_samples) = placed_samples.as_ref() {
+            let meets_in_tree = if let Some(placed_samples) = placed_samples.as_ref() {
                 !placed_samples.has_neighbor_in_range(&candidate_point, minimum_sample_distance as f64)
             } else {
-                // No point added yet, good to go for the first point
                 true
-            }
+            };
+
+            meets_in_tree && placed_samples_pending.iter()
+                    .all(|s| (s.position() - candidate_point.position()).magnitude2() > (minimum_sample_distance*minimum_sample_distance))
         };
 
         if meets_minimum_distance_requirement {
-            if let None = placed_samples {
-                let mut points = [ candidate_point ];
-                placed_samples = Some(Kdtree::new(&mut points));
-            } else {
-                if let Some(placed_samples) = placed_samples.as_mut() {
-                    placed_samples.insert_nodes_and_rebuild(&mut [ candidate_point ]);
+            placed_samples_pending.push(candidate_point);
+
+            if placed_samples_pending.len() == placed_samples_pending_max_len {
+                if let None = placed_samples {
+                    placed_samples = Some(Kdtree::new(&mut placed_samples_pending));
+                } else {
+                    if let Some(placed_samples) = placed_samples.as_mut() {
+                        placed_samples.insert_nodes_and_rebuild(&mut placed_samples_pending);
+                    }
                 }
+                placed_samples_pending.clear();
+                trace!("Generated {} samples, {} triangles left...", generated_samples.len(), active_triangles.triangle_count());
             }
 
             generated_samples.push(
@@ -100,8 +128,6 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
                     candidate_point.position()
                 )
             );
-
-            trace!("Generated {} samples, {} triangles left...", generated_samples.len(), active_triangles.triangle_count());
         }
 
         let is_covered = |tri : &Triangle<SparseVertex>| {
@@ -111,14 +137,17 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
                 position: [center.x as f64, center.y as f64, center.z as f64]
             };
 
-            match placed_samples.as_ref() {
+            let covered_in_tree  = match placed_samples.as_ref() {
                 Some(placed_samples) => tri.is_inside_sphere(
                     // Search for nearest point to the center of the triangle
                     placed_samples.nearest_search(&center).position(),
                     0.5 * minimum_sample_distance
                 ),
                 None => false
-            }
+            };
+
+            covered_in_tree && placed_samples_pending.iter()
+                .any(|s| tri.is_inside_sphere(s.position(), 0.5 * minimum_sample_distance))
         };
 
         if !is_covered(&tri) {
@@ -133,5 +162,6 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
 
     info!("Done throwing darts!");
 
-    generated_samples
+    generated_samples*/
 }
+
