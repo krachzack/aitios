@@ -88,8 +88,8 @@ impl<V> Triangle<V>
         let ab = b - a;
         let ab_cross_ac = ab.cross(ac);
 
-        // this is the vector from a TO the circumsphere center
-        let to_circumsphere_center = (ab_cross_ac.cross(ab) * ac.magnitude2() + ac.cross( ab_cross_ac )*ab.magnitude2()) /
+        // this is the vector from a vertex A to the circumsphere center
+        let to_circumsphere_center = (ab_cross_ac.cross(ab) * ac.magnitude2() + ac.cross(ab_cross_ac) * ab.magnitude2()) /
             (2.0 * ab_cross_ac.magnitude2());
 
         a +  to_circumsphere_center
@@ -380,5 +380,10 @@ mod test {
                 })
                 .count()
         );
+
+        let subdivided_tris_area_sum = triangles.iter().map(Triangle::area).sum::<f32>();
+        let source_tri_area = tri.area();
+        assert_eq!(source_tri_area, 2.0); // (width * height) / 2, given width = 2, height = 2
+        assert_eq!(subdivided_tris_area_sum, source_tri_area);
     }
 }

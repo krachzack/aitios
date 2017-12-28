@@ -19,7 +19,7 @@ use super::effect::{Effect, Blend, DensityMap};
 ///
 /// # Examples
 ///
-/// The following example builds, but not runs, a simulation on
+/// The following example builds and runs a simulation on
 /// `"test-scenes/buddha-scene/buddha-scene.obj"` where the diffuse map
 /// of the `"bronze"` material is blended towards an image file
 /// `"test-scenes/buddha-scene/weathered_bronze.png"`.
@@ -31,8 +31,7 @@ use super::effect::{Effect, Blend, DensityMap};
 ///     .scene(
 ///         "test-scenes/buddha-scene/buddha-scene.obj",
 ///         |s| {
-///             s.surfels_per_sqr_unit(5000.0)
-///                 .delta_straight(1.0)
+///             s.delta_straight(1.0)
 ///                 .substances(&vec![0.0])
 ///         }
 ///     )
@@ -55,7 +54,8 @@ use super::effect::{Effect, Blend, DensityMap};
 ///     )
 ///     .ton_to_surface_interaction_weight(0.05)
 ///     .iterations(1)
-///     .build();
+///     .build()
+///     .run();
 /// ```
 pub struct SimulationBuilder {
     // TODO this should hold SceneBuilder and SurfaceBuilder

@@ -7,6 +7,8 @@ use ::geom::vtx::Vertex;
 
 use ::kdtree::kdtree::Kdtree;
 
+use ::cgmath::Vector3;
+
 pub struct Darts {
     active_triangles: TriangleBins,
     min_point_distance: f64,
@@ -50,7 +52,23 @@ impl Darts
     }
 
     fn is_covered(&self, fragment: &Triangle<SparseVertex>) -> bool {
-        true
+        if let Some(ref previous_samples) = self.previous_samples {
+            let search_pos = fragment.center();
+            let nearest = previous_samples.nearest_search(&SparseVertex {
+                mother_triangle_idx: None,
+                position: [search_pos.x as f64, search_pos.y as f64, search_pos.z as f64]
+            });
+            let nearest_position = Vector3::new(
+                nearest.position[0] as f32,
+                nearest.position[1] as f32,
+                nearest.position[2] as f32
+            );
+
+            // FIXME should be 0.5 * self.min_point_distance
+            fragment.is_inside_sphere(nearest_position, self.min_point_distance as f32)
+        } else {
+            false
+        }
     }
 }
 
@@ -77,7 +95,7 @@ impl Iterator for Darts {
 
             if !self.is_covered(&fragment) {
                 for sub_fragment in fragment.split_at_edge_midpoints().iter() {
-                    if(sub_fragment.area() > 0.000001 && !self.is_covered(sub_fragment)) {
+                    if sub_fragment.area() > 0.000001 && !self.is_covered(sub_fragment) {
                         self.active_triangles.push(*sub_fragment)
                     }
                 }

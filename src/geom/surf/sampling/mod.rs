@@ -2,19 +2,14 @@ mod vtx;
 mod bins;
 mod darts;
 
-use self::vtx::SparseVertex;
-use self::bins::TriangleBins;
 use self::darts::Darts;
 
 use ::geom::tri::Triangle;
 use ::geom::vtx::Vertex;
 
 use ::cgmath::Vector3;
-use ::cgmath::prelude::*;
 
-use ::kdtree::kdtree::Kdtree;
-
-use std::f32::consts::PI;
+use std::time::Instant;
 
 
 /// Generates a vector of surface samples using dart throwing.
@@ -27,13 +22,34 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
 {
     let fat_triangles : Vec<_> = triangles.into_iter().collect();
 
-    Darts::new(fat_triangles.iter(), minimum_sample_distance)
-        .take(20000)
+    info!("Throwing darts with 2r={}...", minimum_sample_distance);
+    let start_time = Instant::now();
+
+    let mut sampled = 0;
+
+    let samples = Darts::new(fat_triangles.iter(), minimum_sample_distance)
+        .inspect(|_| {
+            sampled += 1;
+            if sampled % 512 == 0 {
+                info!("{} points sampled...", sampled);
+            }
+        })
         .map(|v| triangle_and_sample_pos_to_sample(&fat_triangles[v.mother_triangle_idx.unwrap()], v.position()))
-        .collect()
+        .collect();
+
+    info!("Ok, took {}s", start_time.elapsed().as_secs());
+
+    samples
 
 
-    /*info!("Preparing dart throwing...");
+    /*
+    use self::vtx::SparseVertex;
+    use self::bins::TriangleBins;
+    use ::cgmath::prelude::*;
+    use ::kdtree::kdtree::Kdtree;
+    use std::f32::consts::PI;
+
+    info!("Preparing dart throwing...");
 
     // This vector is going to be huge but we need the original
     // triangles later for interpolation, maybe this should instead

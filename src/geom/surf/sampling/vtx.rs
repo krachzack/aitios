@@ -46,7 +46,7 @@ impl Add for SparseVertex {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // Mother riangle is taken from lhs, but is assumed
+        // Mother triangle is taken from lhs, but is assumed
         // to by identical for rhs
         SparseVertex {
             mother_triangle_idx: self.mother_triangle_idx,

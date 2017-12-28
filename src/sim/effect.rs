@@ -54,7 +54,7 @@ impl Effect for Blend {
         let materials = &mut scene.materials;
 
         for (entity_idx, entity) in entities.iter_mut().enumerate().filter(|args| args.1.material_idx == subject_material_idx) {
-            let blend_factors = blend_factors_by_closest_surfel(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
+            let blend_factors = blend_factors_by_avg_local_density(surface, self.substance_idx, entity_idx, tex_width as usize, tex_height as usize);
 
             let blended_map = image::ImageBuffer::from_fn(
                 subject_map.width(), subject_map.height(),
