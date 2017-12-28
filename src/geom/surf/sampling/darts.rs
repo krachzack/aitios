@@ -32,9 +32,13 @@ impl Darts
         );
         trace!("Ok");
 
-        // 0.3 is a factor that can be increased to make the poisson disk set more maximal
-        // or decresed to reduce triangle splits and thus running time
-        let disregard_area = 0.3 * min_point_distance * min_point_distance * PI;
+        // disregardiness is a factor for running time vs amount of generated points
+        // A value closer to zero will result in a more even spacing of points by
+        // generating more points and making the poisson disk set more maximal.
+        // A higher value will decrease the number of performed triangle splits
+        // and thus improve running time. The set will be less evenly spaced though.
+        let disregardiness = 0.3;
+        let disregard_area = disregardiness * min_point_distance * min_point_distance * PI;
 
         Darts {
             active_triangles,
