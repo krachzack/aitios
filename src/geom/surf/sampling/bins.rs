@@ -7,6 +7,8 @@ use ::rand::Rng;
 
 use std::f32;
 
+use ::float_extras::f64::ilogb;
+
 pub struct TriangleBins {
     bins: Vec<Vec<Triangle<SparseVertex>>>,
     /// One over the value of one area unit in bin_areas and bin_areas_sum
@@ -76,11 +78,16 @@ impl TriangleBins {
         self.bin_max_areas[of_bin_with_idx]
     }
 
-    pub fn push(&mut self, tri: Triangle<SparseVertex>) {
-        let area = tri.area();
+    fn bin_idx_by_area(&self, area: f32) -> usize {
         let first_bin_max_area = self.bin_max_areas[0];
         assert!(area <= first_bin_max_area, "Cannot push triangle with larger area than the largest triangle");
-        let bin_idx = (first_bin_max_area / area).log2() as usize;
+        // faster version of (first_bin_max_area / area).log2()
+        ilogb((first_bin_max_area / area) as f64) as usize
+    }
+
+    pub fn push(&mut self, tri: Triangle<SparseVertex>) {
+        let area = tri.area();
+        let bin_idx =  self.bin_idx_by_area(area);
         if bin_idx < self.bins.len() {
             let area = self.integral_area(area);
 
@@ -165,7 +172,7 @@ fn partition_triangles(
         let area = triangle.area();
 
         if area > 0.0 {
-            let bin_idx = (max_area / area).log2() as usize;
+            let bin_idx = bin_idx_by_area(max_area, area);
 
             if bin_idx < bin_count {
                 bins[bin_idx].push(triangle);
@@ -181,4 +188,10 @@ fn partition_triangles(
     }
 
     (bins, max_area)
+}
+
+fn bin_idx_by_area(max_area: f32, area: f32) -> usize {
+    assert!(area <= max_area, "Cannot push triangle with larger area than the largest triangle");
+    // faster version of (first_bin_max_area / area).log2()
+    ilogb((max_area / area) as f64) as usize
 }

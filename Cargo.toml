@@ -14,6 +14,7 @@ tobj = "0.1.6"
 rand = "0.3.18"
 image = "0.17.0"
 fux_kdtree = "0.2.0"
+float_extras = "0.1.6"
 
 [dev-dependencies]
 chrono = "0.4.0"

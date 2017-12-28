@@ -66,10 +66,7 @@ impl Darts
 
     fn is_covered(&self, fragment: &Triangle<SparseVertex>) -> bool {
         if let Some(ref previous_samples) = self.previous_samples {
-            let proposed_covering_point = {
-                fragment.center()
-            };
-
+            let proposed_covering_point = fragment.minimum_bounding_sphere_center();
 
             let nearest = previous_samples.nearest_search(&SparseVertex {
                 mother_triangle_idx: None,

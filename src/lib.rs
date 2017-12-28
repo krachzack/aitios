@@ -6,6 +6,7 @@ extern crate cgmath;
 extern crate rand;
 extern crate image;
 extern crate kdtree;
+extern crate float_extras;
 
 mod geom;
 mod sim;

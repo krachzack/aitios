@@ -12,6 +12,7 @@ use super::intersect::IntersectRay;
 
 use std::ops::{Mul, Add};
 use std::iter::Sum;
+use std::f32::EPSILON;
 
 use ::rand;
 
@@ -93,6 +94,56 @@ impl<V> Triangle<V>
             (2.0 * ab_cross_ac.magnitude2());
 
         a +  to_circumsphere_center
+    }
+
+    /// Returns the minimum bounding sphere center and squared radius
+    /// of the triangle.
+    ///
+    /// See: http://realtimecollisiondetection.net/blog/?p=20
+    pub fn minimum_bounding_sphere_sqr(&self) -> (Vector3<f32>, f32) {
+        //void MinimumBoundingCircle(Circle &circle, Point a, Point b, Point c) {
+        let (a, b, c) = (self.vertices[0].position(), self.vertices[1].position(), self.vertices[2].position());
+        let dot_abab = (b - a).dot(b - a);
+        let dot_abac = (b - a).dot(c - a);
+        let dot_acac = (c - a).dot(c - a);
+        let d = 2.0 * (dot_abab * dot_acac - dot_abac * dot_abac);
+        let mut reference_point = a;
+
+        let center = if d.abs() <= EPSILON {
+            // a, b, and c lie on a line. Circle center is center of AABB of the
+            // points, and radius is distance from circle center to AABB corner
+            let bbox = self.bounds();
+            reference_point = bbox.min;
+            0.5 * (bbox.min + bbox.max)
+        } else {
+            let s = (dot_abab * dot_acac - dot_acac * dot_abac) / d;
+            let t = (dot_acac * dot_abab - dot_abab * dot_abac) / d;
+            // s controls height over AC, t over AB, (1-s-t) over BC
+            if s <= 0.0 {
+                0.5 * (a + c)
+            } else if t <= 0.0 {
+                0.5 * (a + b)
+            } else if (s + t) >= 1.0 {
+                reference_point = b;
+                0.5 * (b + c)
+            } else {
+                a + s*(b - a) + t*(c - a)
+            }
+        };
+
+        let radius_sqr = center.distance2(reference_point);
+
+        (center, radius_sqr)
+    }
+
+    pub fn minimum_bounding_sphere_center(&self) -> Vector3<f32> {
+        let (center, _) = self.minimum_bounding_sphere();
+        center
+    }
+
+    pub fn minimum_bounding_sphere(&self) -> (Vector3<f32>, f32) {
+        let (center, radius_sqr) = self.minimum_bounding_sphere_sqr();
+        (center, radius_sqr.sqrt())
     }
 
     /// Compute barycentric coordinates [u, v, w] for
