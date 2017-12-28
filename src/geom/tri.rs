@@ -18,7 +18,7 @@ use ::rand;
 /// The `Triangle<V>` type encapsulates three vertices.
 /// A vertex must implement `geom::vtx::Vertex` and hence has a position
 /// in 3D space.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Triangle<V>
     where V : Vertex
 {

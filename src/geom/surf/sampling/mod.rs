@@ -21,6 +21,7 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
         F : Fn(&Triangle<V>, Vector3<f32>) -> S
 {
     let fat_triangles : Vec<_> = triangles.into_iter().collect();
+    let fat_triangle_count = fat_triangles.len();
 
     info!("Throwing darts with 2r={}...", minimum_sample_distance);
     let start_time = Instant::now();
@@ -30,7 +31,7 @@ pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, trian
     let samples = Darts::new(fat_triangles.iter(), minimum_sample_distance)
         .inspect(|_| {
             sampled += 1;
-            if sampled % 512 == 0 {
+            if sampled % (fat_triangle_count / 5) == 0 {
                 info!("{} points sampled...", sampled);
             }
         })

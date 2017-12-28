@@ -9,7 +9,7 @@ use ::kdtree::kdtree::KdtreePointTrait;
 /// Vertex consisting of position and the index of a triangle that
 /// this vertex originated from. By having a small vertex type, we can
 /// more cheaply create new triangles and interpolate vertices.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct SparseVertex {
     pub mother_triangle_idx: Option<usize>,
     pub position: [f64; 3]

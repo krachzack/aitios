@@ -9,16 +9,16 @@ use std::fs::create_dir;
 
 #[cfg_attr(not(feature = "expensive_tests"), ignore)]
 #[test]
-fn buddha_room_bronze_test() {
-    let directory = common::prepare_test_directory("buddha_room_bronze_test");
+fn street_test() {
+    let directory = common::prepare_test_directory("street_test");
 
     let mut obj_file = directory.clone();
-    obj_file.push("buddha-scene-weathered");
+    obj_file.push("street_test");
     obj_file.set_extension("obj");
     let obj_file = obj_file.to_str().unwrap();
 
     let mut mtl_file = directory.clone();
-    mtl_file.push("buddha-scene-weathered");
+    mtl_file.push("street_test");
     mtl_file.set_extension("mtl");
     let mtl_file = mtl_file.to_str().unwrap();
 
@@ -30,8 +30,8 @@ fn buddha_room_bronze_test() {
 
     let blent_map_output_directory = directory.to_str().unwrap();
 
-    let input_path = "test-scenes/buddha-scene";
-    let model_obj_path = format!("{}/buddha-scene.obj", input_path);
+    let input_path = "test-scenes/street-lowpoly";
+    let model_obj_path = format!("{}/street-lowpoly.obj", input_path);
 
     let mut hit_map_path = directory.clone();
     hit_map_path.push("interacted_surfels");
@@ -60,14 +60,14 @@ fn buddha_room_bronze_test() {
         })
         .add_effect_blend(
             0, // Index of substance that drives the blend
-            "bronze", // material that gets changed
+            "Metal", // material that gets changed
             "map_Kd", // map of the material that gets changed
             "test-scenes/buddha-scene/weathered_bronze.png",
             blent_map_output_directory
         )
         .add_effect_blend(
             0,
-            "stone",
+            "street",
             "map_Kd",
             "test-scenes/buddha-scene/moss.png",
             blent_map_output_directory

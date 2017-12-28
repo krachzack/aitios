@@ -9,10 +9,18 @@ use std::f32;
 
 pub struct TriangleBins {
     bins: Vec<Vec<Triangle<SparseVertex>>>,
-    bin_areas: Vec<f32>,
+    /// One over the value of one area unit in bin_areas and bin_areas_sum
+    inv_area_quantum: f32,
+    /// Approximate area of all binned triangles represented as a multiple of area_quantum
+    /// When summing up triangles, their areas will be ceiled.
+    /// Adding and subtracting integers is fast and repeatable, while these operations in
+    /// floating point introduce some error that eventually sums up to a large error.
+    bin_areas_sum: u64,
+    /// Approximate areas of bins as multiples of area_quantum, sum of this vector must be
+    /// exactly equal to bin_areas_sum
+    bin_areas: Vec<u64>,
+    /// Contains the upper bounds for triangles stored in a bin
     bin_max_areas: Vec<f32>,
-    bin_areas_sum: f32,
-    first_bin_max_area: f32,
     triangle_count: usize
 }
 
@@ -23,16 +31,25 @@ impl TriangleBins {
     ) -> TriangleBins {
 
         let (bins, first_bin_max_area) = partition_triangles(triangles, bin_count);
-        let bin_areas : Vec<f32> = bins.iter()
-            .map(|b| {
-                b.iter()
-                    .map(|t| t.area())
-                    .sum()
-            })
+
+        let bin_max_areas : Vec<f32> = (0..bin_count)
+            .map(|bin_idx| first_bin_max_area * (2.0 as f32).powi(-(bin_idx as i32)))
             .collect();
 
-        let bin_max_areas = (0..bin_count)
-            .map(|bin_idx| first_bin_max_area * (2.0 as f32).powi(-(bin_idx as i32)))
+        // This leads to the smallest possible triangle having size 50,
+        // and largest having size 0.01 * 2^(bin_count-1), which is 21_474_836.48 for 32 bins
+        let inv_area_quantum = 1.0 / (0.01 * bin_max_areas[bin_count-1]);
+
+        let bin_areas : Vec<u64> = bins.iter()
+            .map(|b| {
+                b.iter()
+                    .map(|t| {
+                        (inv_area_quantum * t.area()).ceil() as u64
+                    })
+                    // Verify no area is zero
+                    .inspect(|a| assert_ne!(0_u64, *a))
+                    .sum()
+            })
             .collect();
 
         let bin_areas_sum = bin_areas.iter()
@@ -45,33 +62,32 @@ impl TriangleBins {
         debug!("Bin max areas {:?}", bin_max_areas);
         debug!("Bin areas {:?}", bin_areas);
 
-        TriangleBins { bins, bin_areas, bin_max_areas, bin_areas_sum, first_bin_max_area, triangle_count }
+        TriangleBins { bins, inv_area_quantum, bin_areas, bin_max_areas, bin_areas_sum, triangle_count }
+    }
+
+    fn integral_area(&self, float_approximation: f32) -> u64 {
+        assert!(float_approximation > 0.0);
+        let area = (float_approximation * self.inv_area_quantum).ceil() as u64;
+        assert!(area > 0);
+        area
     }
 
     fn bin_max_area(&self, of_bin_with_idx: usize) -> f32 {
         self.bin_max_areas[of_bin_with_idx]
     }
 
-    fn refresh_cached_areas(&mut self) {
-        for (area, bin) in self.bin_areas.iter_mut().zip(self.bins.iter()) {
-            *area = bin.iter()
-                .map(Triangle::area)
-                .sum::<f32>();
-        }
-
-        self.bin_areas_sum = self.bin_areas.iter().sum();
-    }
-
     pub fn push(&mut self, tri: Triangle<SparseVertex>) {
         let area = tri.area();
-        assert!(area <= self.first_bin_max_area);
-        let bin_idx = (self.first_bin_max_area / area).log2() as usize;
+        let first_bin_max_area = self.bin_max_areas[0];
+        assert!(area <= first_bin_max_area, "Cannot push triangle with larger area than the largest triangle during initial binning");
+        let bin_idx = (first_bin_max_area / area).log2() as usize;
         if bin_idx < self.bins.len() {
+            let area = self.integral_area(area);
+
             self.bins[bin_idx].push(tri);
             self.bin_areas[bin_idx] += area;
             self.bin_areas_sum += area;
             self.triangle_count += 1;
-            /* self.refresh_cached_areas() */
         }
     }
 
@@ -80,11 +96,7 @@ impl TriangleBins {
     ///
     /// The sampled triangle is removed from its bin.
     pub fn sample_triangle(&mut self) -> Triangle<SparseVertex> {
-        if(self.bin_areas_sum <= 0.0 && self.triangle_count > 0) {
-            self.refresh_cached_areas();
-        }
-
-        assert!(self.bin_areas_sum > 0.0, "Can only sample triangle on non-empty triangle bins");
+        assert!(self.bin_areas_sum > 0, "Can only sample triangle with remaining non-empty triangle bins. triangle_count={} bin_areas_sum={} bin_areas={:?}", self.triangle_count, self.bin_areas_sum, self.bin_areas);
 
         let bin_idx = self.sample_bin_idx();
         let bin_max_area = self.bin_max_area(bin_idx);
@@ -100,16 +112,10 @@ impl TriangleBins {
             if rng.next_f32() < acceptance_probability {
                 let random_tri = self.bins[bin_idx].swap_remove(random_tri_idx);
 
-                let area = random_tri.area();
+                let area = self.integral_area(random_tri.area());
                 self.bin_areas[bin_idx] -= area;
                 self.bin_areas_sum -= area;
                 self.triangle_count -= 1;
-
-                /*self.bin_areas[bin_idx] = self.bins[bin_idx].iter()
-                    .map(|t| t.area())
-                    .sum();
-
-                self.bin_areas_sum = self.bin_areas.iter().sum();*/
 
                 return random_tri;
             }
@@ -122,35 +128,22 @@ impl TriangleBins {
 
     /// Samples a random bin index with a probability proportional to the contained triangles area
     fn sample_bin_idx(&mut self) -> usize {
-        let idx = self.try_sample_bin_idx();
-
-        if let Some(idx) = idx {
-            idx
-        } else {
-            // Recalculate areas and retry
-            self.refresh_cached_areas();
-            self.sample_bin_idx()
-        }
-    }
-
-    /// Tries to sample a bin but might fail if cached areas are out of sync
-    fn try_sample_bin_idx(&self) -> Option<usize> {
-        let mut r = rand::random::<f32>() * self.bin_areas_sum;
+        let mut rng = rand::thread_rng();
+        let mut r = rng.gen_range(0, self.bin_areas_sum);
 
         for (idx, area) in self.bin_areas.iter().enumerate() {
-            r -= area;
-            if r < 0.0 {
+            if r < *area {
                 if self.bins[idx].is_empty() {
-                    warn!("Empty bin sampled, bin_areas_sum ({}) and bin_areas.sum() ({}) must be out of sync, retrying with refreshed areas", self.bin_areas_sum, self.bin_areas.iter().sum::<f32>());
-                    return None;
+                    panic!("Empty bin sampled, bin_areas_sum ({}) and bin_areas.sum() ({}) must be out of sync, retrying with refreshed areas", self.bin_areas_sum, self.bin_areas.iter().sum::<u64>());
                 }
 
-                return Some(idx);
+                return idx;
             }
+
+            r -= area;
         }
 
-        warn!("No bin sampled, bin_areas_sum ({}) and bin_areas.sum() ({}) must be out of sync, retrying with refreshed areas, r={}", self.bin_areas_sum, self.bin_areas.iter().sum::<f32>(), r);
-        None
+        panic!("No bin sampled, bin_areas_sum ({}) and bin_areas.sum() ({}) must be out of sync, retrying with refreshed areas, r={}", self.bin_areas_sum, self.bin_areas.iter().sum::<u64>(), r);
     }
 }
 
@@ -170,15 +163,20 @@ fn partition_triangles(
 
     for triangle in triangles.into_iter() {
         let area = triangle.area();
-        let bin_idx = (max_area / area).log2() as usize;
 
-        if bin_idx < bin_count {
-            bins[bin_idx].push(triangle);
+        if(area > 0.0) {
+            let bin_idx = (max_area / area).log2() as usize;
+
+            if bin_idx < bin_count {
+                bins[bin_idx].push(triangle);
+            } else {
+                // During intitial binning, do not filter out very small triangles
+                //bins[bin_idx].push(triangle);
+
+                warn!("Ignoring triangle with too small area {} during initial binning", area);
+            }
         } else {
-            // During intitial binning, do not filter out very small triangles
-            //bins[bin_idx].push(triangle);
-
-            warn!("Ignoring triangle with too small area {} during initial binning", area);
+            warn!("Ignoring triangle with area of zero during initial binning");
         }
     }
 
