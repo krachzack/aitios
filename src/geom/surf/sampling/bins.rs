@@ -79,7 +79,7 @@ impl TriangleBins {
     pub fn push(&mut self, tri: Triangle<SparseVertex>) {
         let area = tri.area();
         let first_bin_max_area = self.bin_max_areas[0];
-        assert!(area <= first_bin_max_area, "Cannot push triangle with larger area than the largest triangle during initial binning");
+        assert!(area <= first_bin_max_area, "Cannot push triangle with larger area than the largest triangle");
         let bin_idx = (first_bin_max_area / area).log2() as usize;
         if bin_idx < self.bins.len() {
             let area = self.integral_area(area);
@@ -164,7 +164,7 @@ fn partition_triangles(
     for triangle in triangles.into_iter() {
         let area = triangle.area();
 
-        if(area > 0.0) {
+        if area > 0.0 {
             let bin_idx = (max_area / area).log2() as usize;
 
             if bin_idx < bin_count {

@@ -47,7 +47,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.1)
+                s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }

@@ -9,9 +9,13 @@ use ::kdtree::kdtree::Kdtree;
 
 use ::cgmath::Vector3;
 
+use std::f32::consts::PI;
+
 pub struct Darts {
     active_triangles: TriangleBins,
     min_point_distance: f64,
+    /// Do not split a triangle if the resulting subfragments would have a smaller area than this
+    disregard_area: f32,
     previous_samples: Option<Kdtree<SparseVertex>>
 }
 
@@ -28,10 +32,15 @@ impl Darts
         );
         trace!("Ok");
 
+        // 0.3 is a factor that can be increased to make the poisson disk set more maximal
+        // or decresed to reduce triangle splits and thus running time
+        let disregard_area = 0.3 * min_point_distance * min_point_distance * PI;
+
         Darts {
             active_triangles,
             previous_samples: None,
-            min_point_distance: min_point_distance as f64
+            min_point_distance: min_point_distance as f64,
+            disregard_area
         }
     }
 
@@ -53,10 +62,14 @@ impl Darts
 
     fn is_covered(&self, fragment: &Triangle<SparseVertex>) -> bool {
         if let Some(ref previous_samples) = self.previous_samples {
-            let search_pos = fragment.center();
+            let proposed_covering_point = {
+                fragment.center()
+            };
+
+
             let nearest = previous_samples.nearest_search(&SparseVertex {
                 mother_triangle_idx: None,
-                position: [search_pos.x as f64, search_pos.y as f64, search_pos.z as f64]
+                position: [proposed_covering_point.x as f64, proposed_covering_point.y as f64, proposed_covering_point.z as f64]
             });
             let nearest_position = Vector3::new(
                 nearest.position[0] as f32,
@@ -64,8 +77,7 @@ impl Darts
                 nearest.position[2] as f32
             );
 
-            // FIXME should be 0.5 * self.min_point_distance
-            fragment.is_inside_sphere(nearest_position, self.min_point_distance as f32)
+            fragment.is_inside_sphere(nearest_position, 0.5 * self.min_point_distance as f32)
         } else {
             false
         }
@@ -93,10 +105,13 @@ impl Iterator for Darts {
                 }
             };
 
-            if !self.is_covered(&fragment) {
-                for sub_fragment in fragment.split_at_edge_midpoints().iter() {
-                    if sub_fragment.area() > 0.000001 && !self.is_covered(sub_fragment) {
-                        self.active_triangles.push(*sub_fragment)
+            let split_area = 0.25 * fragment.area();
+            if split_area > self.disregard_area {
+                if !self.is_covered(&fragment) {
+                    for sub_fragment in fragment.split_at_edge_midpoints().iter() {
+                        if !self.is_covered(sub_fragment) {
+                            self.active_triangles.push(*sub_fragment)
+                        }
                     }
                 }
             }
