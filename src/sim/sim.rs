@@ -14,7 +14,7 @@ use ::geom::intersect::IntersectRay;
 use ::sink::SceneSink;
 
 use super::ton::TonSource;
-use super::effect::Effect;
+use super::effect::SceneEffect;
 
 /// Maintains a simulation on a scene with an associated surface
 /// model.
@@ -29,7 +29,7 @@ pub struct Simulation {
     /// Ton sources that will emit particles at the start of each iteration
     sources: Vec<TonSource>,
     /// Effects that will be invoked at the end of each iteration
-    effects: Vec<Box<Effect>>,
+    scene_effects: Vec<Box<SceneEffect>>,
     /// Scene sinks that will be invoked after the completion of the last iteration to serialize
     /// scene or materials.
     scene_sinks: Vec<Box<SceneSink>>,
@@ -52,7 +52,7 @@ impl Simulation {
         ton_to_surface_interaction_weight: f32,
         iterations: u32,
         sources: Vec<TonSource>,
-        effects: Vec<Box<Effect>>,
+        scene_effects: Vec<Box<SceneEffect>>,
         scene_sinks: Vec<Box<SceneSink>>,
         hit_map_path: Option<PathBuf>) -> Simulation
     {
@@ -61,7 +61,7 @@ impl Simulation {
             surface,
             iterations,
             sources,
-            effects,
+            scene_effects,
             scene_sinks,
             ton_to_surface_interaction_weight,
             hit_map_path
@@ -85,8 +85,10 @@ impl Simulation {
 
         for _ in 0..self.iterations {
             self.trace_particles();
-            self.perform_effects();
+            self.perform_iteration_effects();
         }
+
+        self.perform_after_simulation_effects();
 
         self.serialize_scene_to_sinks();
         self.dump_hit_map();
@@ -128,9 +130,15 @@ impl Simulation {
         info!("Ok, {}s", before.elapsed().as_secs());
     }
 
-    fn perform_effects(&mut self) {
-        for effect in &self.effects {
-            effect.perform(&mut self.scene, &self.surface)
+    fn perform_iteration_effects(&mut self) {
+        for effect in &self.scene_effects {
+            effect.perform_after_iteration(&mut self.scene, &self.surface);
+        }
+    }
+
+    fn perform_after_simulation_effects(&mut self) {
+        for effect in &self.scene_effects {
+            effect.perform_after_simulation(&mut self.scene, &self.surface);
         }
     }
 

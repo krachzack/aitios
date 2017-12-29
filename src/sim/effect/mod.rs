@@ -4,7 +4,12 @@ mod substance_map_material;
 mod substance_map;
 mod substance_mapper;
 
-use std::fs::File;
+pub use self::scene::SceneEffect;
+pub use self::substance_color::SubstanceColorEffect;
+pub use self::substance_mapper::SubstanceMapper;
+pub use self::substance_map_material::SubstanceMapMaterialEffect;
+
+/*use std::fs::File;
 use std::path::{Path, PathBuf};
 use ::geom::surf::Surface;
 use ::geom::scene::Scene;
@@ -331,5 +336,5 @@ fn nearest_texel_idx_clamp(texcoords: Vector2<f32>, texel_count_x: usize, texel_
     }
 
     y * texel_count_x + x
-}
+}*/
 

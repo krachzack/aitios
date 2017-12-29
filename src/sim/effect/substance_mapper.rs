@@ -13,7 +13,7 @@ use std::f32::NAN;
 
 use std::time::Instant;
 
-struct SubstanceMapper {
+pub struct SubstanceMapper {
     substance_idx: usize,
     sampling: Sampling,
     texture_width: usize,
@@ -52,6 +52,16 @@ impl SceneEffect for SubstanceMapper {
 }
 
 impl SubstanceMapper {
+    pub fn new(substance_idx: usize, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
+        SubstanceMapper {
+            substance_idx,
+            sampling: Sampling::Radius(0.05),
+            texture_width,
+            texture_height,
+            after_effects
+        }
+    }
+
     fn gather(&self, surf: &Surface, entity_idx: usize) -> SubstanceMap {
         SubstanceMap::new(
             self.texture_width,

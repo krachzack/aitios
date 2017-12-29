@@ -1,4 +1,4 @@
-extern crate aitios;
+/*extern crate aitios;
 #[macro_use] extern crate log;
 extern crate simplelog;
 extern crate chrono;
@@ -82,3 +82,4 @@ fn street_test() {
         .build()
         .run();
 }
+*/

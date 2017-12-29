@@ -11,9 +11,11 @@ use ::sink::*;
 use ::sink::obj::ObjSink;
 use ::sink::mtl::MtlSink;
 
+use ::cgmath::Vector4;
+
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{Effect, Blend, DensityMap};
+use super::effect::{SubstanceMapper, SubstanceColorEffect, SubstanceMapMaterialEffect};
 
 /// Builds a simulation according to provided parameters and closures.
 ///
@@ -64,11 +66,14 @@ pub struct SimulationBuilder {
     surface: Option<Surface>,
     iterations: u32,
     sources: Vec<TonSource>,
-    effects: Vec<Box<Effect>>,
+    effects: Vec<Box<SubstanceMapMaterialEffect>>,
     scene_sinks: Vec<Box<SceneSink>>,
     ton_to_surface_interaction_weight: f32,
     hit_map_path: Option<PathBuf>,
-    surfel_obj_path: Option<PathBuf>
+    surfel_obj_path: Option<PathBuf>,
+    substance_idx: usize,
+    substance_map_width: usize,
+    substance_map_height: usize
 }
 
 impl SimulationBuilder {
@@ -83,7 +88,10 @@ impl SimulationBuilder {
             scene_sinks: Vec::new(),
             ton_to_surface_interaction_weight: 0.3,
             hit_map_path: None,
-            surfel_obj_path: None
+            surfel_obj_path: None,
+            substance_idx: 0,
+            substance_map_width: 4096,
+            substance_map_height: 4096
         }
     }
 
@@ -155,7 +163,7 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str, output_directory: &str) -> SimulationBuilder {
+    /*pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str, output_directory: &str) -> SimulationBuilder {
         self.effects.push(
             Box::new(
                 Blend::new(substance_idx, &self.scene_directory, subject_material_name, subject_material_map, blend_towards_tex_file, &Path::new(output_directory))
@@ -163,12 +171,25 @@ impl SimulationBuilder {
         );
 
         self
+    }*/
+
+    pub fn substance_map_size(mut self, substance_idx: usize, width: usize, height: usize) -> SimulationBuilder {
+        self.substance_idx = substance_idx;
+        self.substance_map_width = width;
+        self.substance_map_height = height;
+
+        self
     }
 
-    pub fn add_effect_density_map(mut self, map_width: usize, map_height: usize, output_directory: &str) -> SimulationBuilder {
+    pub fn add_effect_density_map(mut self, output_directory: &str) -> SimulationBuilder {
         self.effects.push(
             Box::new(
-                DensityMap::new(map_width, map_height, output_directory)
+                SubstanceColorEffect::new(
+                    Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
+                    Vector4::new(0.2, 1.0, 0.2, 1.0), // substance = 1
+                    Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
+                    output_directory
+                )
             )
         );
 
@@ -187,13 +208,17 @@ impl SimulationBuilder {
     }
 
     pub fn build(self) -> Simulation {
+        let substance_mapper = SubstanceMapper::new(
+            self.substance_idx, self.substance_map_width, self.substance_map_height, self.effects
+        );
+
         Simulation::new(
             self.scene,
             self.surface.unwrap(),
             self.ton_to_surface_interaction_weight,
             self.iterations,
             self.sources,
-            self.effects,
+            vec![ Box::new(substance_mapper) ],
             self.scene_sinks,
             self.hit_map_path
         )

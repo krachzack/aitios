@@ -58,24 +58,23 @@ fn buddha_room_bronze_test() {
                 .point_shaped(0.0, 2.0, 0.0)
                 .emission_count(20000)
         })
-        .add_effect_blend(
+        .substance_map_size(
             0, // Index of substance that drives the blend
-            "bronze", // material that gets changed
-            "map_Kd", // map of the material that gets changed
-            "test-scenes/buddha-scene/weathered_bronze.png",
-            blent_map_output_directory
+            4096, // material that gets changed
+            4096
         )
-        .add_effect_blend(
+        .add_effect_density_map(density_map_output_directory)
+        /*.add_effect_blend(
             0,
             "stone",
             "map_Kd",
             "test-scenes/buddha-scene/moss.png",
             blent_map_output_directory
-        )
+        )*/
         //.add_effect_density_map(256, 256, density_map_output_directory)
         //.add_effect_density_map(512, 512, density_map_output_directory)
         //.add_effect_density_map(1024, 1024, density_map_output_directory)
-        .add_effect_density_map(4096, 4096, density_map_output_directory)
+        //.add_effect_density_map(4096, 4096, density_map_output_directory)
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .hit_map_path(hit_map_path)
         .iterations(1)
