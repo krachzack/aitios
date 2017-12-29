@@ -1,3 +1,9 @@
+mod scene;
+mod substance_color;
+mod substance_map_material;
+mod substance_map;
+mod substance_mapper;
+
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use ::geom::surf::Surface;
@@ -28,7 +34,7 @@ pub struct Blend {
     /// Name of the material that this blend effect should affect
     subject_material_name: String,
     /// Name of the map inside the material that should be changed specifically,
-    /// Follows OBJ conventions, e.g. map_Kd is the diffuse map.
+    /// Follows MTL conventions, e.g. map_Kd is the diffuse map.
     subject_material_map: String,
     /// Material that the subject map should be blended towards
     blend_towards_tex_file: String,

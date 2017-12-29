@@ -5,11 +5,21 @@ mod builder;
 pub use self::builder::SurfaceBuilder;
 
 use std::io;
+use std::iter;
+use std::slice;
 
 use ::cgmath::{Vector2, Vector3};
+use ::cgmath::prelude::*;
 use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
 
 use super::scene::Scene;
+
+type Iter<'a> = slice::Iter<'a, Surfel>;
+type BoxedIter<'a> = Box<Iterator<Item = &'a Surfel> + 'a>;
+
+type IterMut<'a> = slice::IterMut<'a, Surfel>;
+type BoxedIterMut<'a> = Box<Iterator<Item = &'a mut Surfel> + 'a>;
+//type WithinSphereSurfelIter<'a> = iter::Filter<slice::IterMut<'a, Surfel>>;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
@@ -94,6 +104,30 @@ impl Surface {
         };
 
         &mut self.samples[nearest_idx.unwrap()]
+    }
+
+    pub fn iter<'a>(&'a self) -> Iter {
+        self.samples.iter()
+    }
+
+    pub fn find_within_sphere<'a>(&'a self, center: Vector3<f32>, radius: f32) -> BoxedIter {
+        let radius_sqr = radius * radius;
+        Box::new(
+            self.samples.iter()
+                .filter(move |s| s.position.distance2(center) < radius_sqr)
+        )
+    }
+
+    pub fn iter_mut<'a>(&'a mut self) -> IterMut {
+        self.samples.iter_mut()
+    }
+
+    pub fn find_within_sphere_mut<'a>(&'a mut self, center: Vector3<f32>, radius: f32) -> BoxedIterMut {
+        let radius_sqr = radius * radius;
+        Box::new(
+            self.samples.iter_mut()
+                .filter(move |s| s.position.distance2(center) < radius_sqr)
+        )
     }
 }
 
