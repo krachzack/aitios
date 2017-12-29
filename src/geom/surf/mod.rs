@@ -5,7 +5,6 @@ mod builder;
 pub use self::builder::SurfaceBuilder;
 
 use std::io;
-use std::iter;
 use std::slice;
 
 use ::cgmath::{Vector2, Vector3};

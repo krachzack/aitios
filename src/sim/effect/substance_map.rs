@@ -1,28 +1,26 @@
-use super::scene::SceneEffect;
-
-use ::geom::scene::Scene;
-use ::geom::scene::Entity;
-use ::geom::surf::Surface;
-
-use ::cgmath::Vector2;
-use ::cgmath::prelude::*;
-
-use ::tobj::Material;
-
-use std::f32::NAN;
 
 pub struct SubstanceMap {
     width: usize,
     height: usize,
+    substance_idx: usize,
+    entity_idx: usize,
     concentrations: Vec<f32>
 }
 
 impl SubstanceMap {
-    pub fn new(width: usize, height: usize, concentrations: Vec<f32>) -> SubstanceMap {
+    pub fn new(width: usize, height: usize, substance_idx: usize, entity_idx: usize, concentrations: Vec<f32>) -> SubstanceMap {
         SubstanceMap {
-            width, height, concentrations
+            width, height, substance_idx, entity_idx, concentrations
         }
     }
+
+    pub fn width(&self) -> usize { self.width }
+
+    pub fn height(&self) -> usize { self.height }
+
+    pub fn substance_idx(&self) -> usize { self.substance_idx }
+
+    pub fn entity_idx(&self) -> usize { self.entity_idx }
 
     pub fn sample_for_image_coords(&self, image_x: usize, image_y: usize, image_width: usize, image_height: usize) -> f32 {
         assert!(

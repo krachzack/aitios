@@ -3,7 +3,6 @@ use super::substance_map::SubstanceMap;
 use super::substance_map_material::SubstanceMapMaterialEffect;
 
 use ::geom::scene::Scene;
-use ::geom::scene::Entity;
 use ::geom::surf::Surface;
 
 use ::cgmath::Vector2;
@@ -32,11 +31,12 @@ impl SceneEffect for SubstanceMapper {
     fn perform_after_iteration(&self, _scene: &mut Scene, _surf: &Surface) { }
 
     fn perform_after_simulation(&self, scene: &mut Scene, surf: &Surface) {
-        info!("Gathering {}x{} substance map...", self.texture_width, self.texture_height);
         let start = Instant::now();
 
         for entity_idx in 0..scene.entities.len() {
+            info!("Gathering {}x{} substance {} map for entity {}...", self.texture_width, self.texture_height, self.substance_idx, scene.entities[entity_idx].name);
             let substance_tex = self.gather(surf, entity_idx);
+            info!("Ok, took {}s", start.elapsed().as_secs());
 
             for effect in &self.after_effects {
                 if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &substance_tex) {
@@ -46,8 +46,6 @@ impl SceneEffect for SubstanceMapper {
                 }
             }
         }
-
-        info!("Ok, took {}s", start.elapsed().as_secs());
     }
 }
 
@@ -55,7 +53,7 @@ impl SubstanceMapper {
     pub fn new(substance_idx: usize, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
         SubstanceMapper {
             substance_idx,
-            sampling: Sampling::Radius(0.05),
+            sampling: Sampling::Radius(0.05), // Radius in UV
             texture_width,
             texture_height,
             after_effects
@@ -66,6 +64,8 @@ impl SubstanceMapper {
         SubstanceMap::new(
             self.texture_width,
             self.texture_height,
+            self.substance_idx,
+            entity_idx,
             match self.sampling {
                 Sampling::Radius(radius) => self.gather_radius(surf, entity_idx, radius, self.texture_width, self.texture_height)
             }
@@ -79,15 +79,16 @@ impl SubstanceMapper {
         let pixel_width = 1.0 / (tex_width as f32);
         let pixel_height = 1.0 / (tex_height as f32);
 
-        let mut u = 0.5 * pixel_width;
         let mut v = 0.5 * pixel_height;
 
-        for _ in 0..tex_width {
-            for _ in 0..tex_height {
+        for _ in 0..tex_height {
+            let mut u = 0.5 * pixel_width;
+
+            for _ in 0..tex_width {
                 concentrations.push(self.gather_concentration_at(surf, entity_idx, u, v, radius));
-                v += pixel_width;
+                u += pixel_width;
             }
-            u += pixel_width;
+            v += pixel_height;
         }
 
         concentrations
@@ -95,7 +96,7 @@ impl SubstanceMapper {
 
     fn gather_concentration_at(&self, surf: &Surface, entity_idx: usize, u: f32, v: f32, radius: f32) -> f32 {
         let uv = Vector2::new(u, v);
-        let (surfel_count, concentration) = surf.iter()
+        let (surfel_count, concentration_sum) = surf.iter()
             .filter(|s|
                 s.entity_idx == entity_idx &&
                 s.texcoords.distance2(uv) < (radius * radius)
@@ -109,8 +110,9 @@ impl SubstanceMapper {
             );
 
         if surfel_count > 0 {
-            concentration
+            concentration_sum / (surfel_count as f32)
         } else {
+            //warn!("No sample at UV {:?}", uv);
             NAN
         }
     }

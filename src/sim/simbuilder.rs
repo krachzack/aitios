@@ -2,7 +2,7 @@
 use std::fs;
 use std::io::prelude::*;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
@@ -186,7 +186,7 @@ impl SimulationBuilder {
             Box::new(
                 SubstanceColorEffect::new(
                     Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
-                    Vector4::new(0.2, 1.0, 0.2, 1.0), // substance = 1
+                    Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
                     Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
                     output_directory
                 )

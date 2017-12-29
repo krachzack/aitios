@@ -47,7 +47,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.01)
+                s.min_sample_distance(0.1)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }
@@ -60,8 +60,8 @@ fn buddha_room_bronze_test() {
         })
         .substance_map_size(
             0, // Index of substance that drives the blend
-            4096, // material that gets changed
-            4096
+            256, // material that gets changed
+            256
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(
