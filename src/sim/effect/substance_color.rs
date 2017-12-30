@@ -93,7 +93,7 @@ fn material_with_diffuse(name: &str, diffuse: &str) -> Material {
         name: String::from(name),
         ambient: [1.0; 3],
         diffuse: [1.0; 3],
-        specular: [1.0; 3],
+        specular: [0.0; 3],
         shininess: 0.0,
         dissolve: 1.0,
         optical_density: 1.0,

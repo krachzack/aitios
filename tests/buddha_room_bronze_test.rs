@@ -41,13 +41,15 @@ fn buddha_room_bronze_test() {
     surfels_path.push("surfels");
     surfels_path.set_extension("obj");
 
+    // TODO decouple simulation from effects
+
     aitios::SimulationBuilder::new()
         .ton_to_surface_interaction_weight(0.2)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.1)
+                s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .substances(&vec![0.0])
             }

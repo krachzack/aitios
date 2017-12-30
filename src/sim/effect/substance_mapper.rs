@@ -53,7 +53,7 @@ impl SubstanceMapper {
     pub fn new(substance_idx: usize, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
         SubstanceMapper {
             substance_idx,
-            sampling: Sampling::Radius(0.05), // Radius in UV
+            sampling: Sampling::Radius(3.0 / (texture_width as f32)), // within three pixels in UV space
             texture_width,
             texture_height,
             after_effects
