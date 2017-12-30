@@ -14,6 +14,8 @@ pub struct Ton {
     /// Probability of moving tangently
     #[allow(dead_code)]
     p_flow: f32,
+    /// Determines the radius around a ton where it interacts with surface elements.
+    pub interaction_radius: f32,
     /// Amount of substances currently being carried by this ton
     pub substances: Vec<f32>
 }
@@ -33,6 +35,8 @@ pub struct TonSource {
     p_parabolic: f32,
     /// Probability of moving tangently for tons emitted by this source
     p_flow: f32,
+    /// Determines the radius around a ton where it interacts with surface elements.
+    interaction_radius: f32,
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
     emission_count: u32
@@ -50,7 +54,8 @@ pub struct TonSourceBuilder {
     p_flow: f32,
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
-    emission_count: u32
+    emission_count: u32,
+    interaction_radius: f32
 }
 
 impl TonSource {
@@ -59,6 +64,7 @@ impl TonSource {
         let p_straight = self.p_straight;
         let p_parabolic = self.p_parabolic;
         let p_flow = self.p_flow;
+        let interaction_radius = self.interaction_radius;
         let substances = self.substances.clone();
         let shape = self.shape.clone();
 
@@ -69,6 +75,7 @@ impl TonSource {
                         p_straight,
                         p_parabolic,
                         p_flow,
+                        interaction_radius,
                         substances: substances.clone()
                     },
                     position.clone(),
@@ -98,7 +105,8 @@ impl TonSourceBuilder {
             p_flow: 0.0,
             substances: Vec::new(),
             shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) },
-            emission_count: 10000
+            emission_count: 10000,
+            interaction_radius: 0.1
         }
     }
 
@@ -134,12 +142,18 @@ impl TonSourceBuilder {
         self
     }
 
+    pub fn interaction_radius(mut self, interaction_radius: f32) -> TonSourceBuilder {
+        self.interaction_radius = interaction_radius;
+        self
+    }
+
     pub fn build(self) -> TonSource {
         TonSource {
             shape: self.shape,
             p_straight: self.p_straight,
             p_parabolic: self.p_parabolic,
             p_flow: self.p_flow,
+            interaction_radius: self.interaction_radius,
             substances: self.substances,
             emission_count: self.emission_count
         }

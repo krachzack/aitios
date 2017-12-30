@@ -114,6 +114,8 @@ impl SubstanceMapper {
         tree
     }
 
+    /// Looks up the surfels within the given radius at the given point in UV space
+    /// and calculates a combined substance concentration.
     fn gather_concentration_at(&self, concentrations: &KdTree<f32, [f64; 2]>, u: f32, v: f32, radius: f32) -> f32 {
         let uv = [ u as f64, v as f64 ];
         // REVIEW since we use squared_euclidean, we should use radius^2 ?

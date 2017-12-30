@@ -1,7 +1,7 @@
 use super::*;
 
 use ::cgmath::{Vector2, Vector3};
-use ::kdtree::kdtree::Kdtree;
+use ::nearest_kdtree::KdTree;
 use super::sampling::throw_darts;
 
 pub struct SurfaceBuilder {
@@ -138,18 +138,16 @@ impl SurfaceBuilder {
     /// Consumes the builder to create a new surface that is returned.
     pub fn build(self) -> Surface {
         let spatial_idx = {
-            let mut spatial_index_data : Vec<_> = self.samples.iter()
-                .enumerate()
-                .map(|(idx, s)| {
-                    let idx = Some(idx);
-                    let x = s.position.x as f64;
-                    let y = s.position.y as f64;
-                    let z = s.position.z as f64;
-                    SurfelIndex { idx, position: [x, y, z] }
-                })
-                .collect();
+            let mut tree = KdTree::new(3);
 
-            Kdtree::new(&mut spatial_index_data)
+            self.samples.iter()
+                .enumerate()
+                .for_each(|(idx, s)| tree.add(
+                    [s.position.x as f64, s.position.y as f64, s.position.z as f64],
+                    idx
+                ).unwrap());
+
+            tree
         };
 
         Surface { samples: self.samples, spatial_idx }

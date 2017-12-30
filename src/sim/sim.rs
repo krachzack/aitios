@@ -114,17 +114,21 @@ impl Simulation {
         let before = Instant::now();
         let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
         for &(ref ton, intersection_point) in initial_hits.iter() {
-            let interacting_surfel = self.surface.nearest(intersection_point);
+            let interacting_surfel_idxs = self.surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 
-            assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
-            let material_transports = interacting_surfel.substances
-                .iter_mut()
-                .zip(
-                    ton.substances.iter()
-                );
+            for surfel_idx in interacting_surfel_idxs {
+                let interacting_surfel = &mut self.surface.samples[surfel_idx];
 
-            for (ref mut surfel_material, &ton_material) in material_transports {
-                **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
+                assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+                let material_transports = interacting_surfel.substances
+                    .iter_mut()
+                    .zip(
+                        ton.substances.iter()
+                    );
+
+                for (ref mut surfel_material, &ton_material) in material_transports {
+                    **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
+                }
             }
         }
         info!("Ok, {}s", before.elapsed().as_secs());

@@ -9,21 +9,19 @@ use std::slice;
 
 use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
-use ::kdtree::kdtree::{Kdtree, KdtreePointTrait};
+use ::nearest_kdtree::KdTree;
+use ::nearest_kdtree::distance::squared_euclidean;
 
 use super::scene::Scene;
 
 type Iter<'a> = slice::Iter<'a, Surfel>;
-type BoxedIter<'a> = Box<Iterator<Item = &'a Surfel> + 'a>;
-
 type IterMut<'a> = slice::IterMut<'a, Surfel>;
-type BoxedIterMut<'a> = Box<Iterator<Item = &'a mut Surfel> + 'a>;
 //type WithinSphereSurfelIter<'a> = iter::Filter<slice::IterMut<'a, Surfel>>;
 
 /// Represents the surface of a mesh as a point-based model
 pub struct Surface {
     pub samples: Vec<Surfel>,
-    pub spatial_idx: Kdtree<SurfelIndex>
+    pub spatial_idx: KdTree<usize, [f64; 3]>
 }
 
 /// Represents an element of the surface of an object
@@ -43,20 +41,6 @@ pub struct Surfel {
     delta_flow: f32,
     /// Holds the amount of substances as numbers in the interval 0..1
     pub substances: Vec<f32>
-}
-
-/// Lightweight spatial index for the surfel
-#[derive(PartialEq, Copy, Clone)]
-pub struct SurfelIndex {
-    position: [f64; 3],
-    idx: Option<usize>
-}
-
-impl KdtreePointTrait for SurfelIndex {
-    #[inline]
-    fn dims(&self) -> &[f64] {
-        &self.position
-    }
 }
 
 impl Surface {
@@ -89,44 +73,40 @@ impl Surface {
     pub fn nearest<'a>(&'a mut self, from: Vector3<f32>) -> &'a mut Surfel {
         assert!(!self.samples.is_empty());
 
-        let SurfelIndex { idx: nearest_idx, position: _ } = {
-            let x = from.x as f64;
-            let y = from.y as f64;
-            let z = from.z as f64;
+        let x = from.x as f64;
+        let y = from.y as f64;
+        let z = from.z as f64;
 
-            let lookup_idx = SurfelIndex {
-                position: [x, y, z],
-                idx: None
-            };
-
-            self.spatial_idx.nearest_search(&lookup_idx)
-        };
-
-        &mut self.samples[nearest_idx.unwrap()]
+        let (_, &nearest_idx) = self.spatial_idx.nearest(&[x, y, z], 1, &squared_euclidean).unwrap()[0];
+        &mut self.samples[nearest_idx]
     }
 
     pub fn iter<'a>(&'a self) -> Iter {
         self.samples.iter()
     }
 
-    pub fn find_within_sphere<'a>(&'a self, center: Vector3<f32>, radius: f32) -> BoxedIter {
-        let radius_sqr = radius * radius;
-        Box::new(
-            self.samples.iter()
-                .filter(move |s| s.position.distance2(center) < radius_sqr)
-        )
+    pub fn find_within_sphere<'a>(&'a self, center: Vector3<f32>, radius: f32) -> Vec<&'a Surfel> {
+        let radius_sqr = (radius * radius) as f64;
+
+        self.spatial_idx.within(
+            &[center.x as f64, center.y as f64, center.z as f64],
+            radius_sqr,
+            &squared_euclidean
+        ).unwrap().iter().map(move |&(_, &idx)| &self.samples[idx]).collect()
     }
 
     pub fn iter_mut<'a>(&'a mut self) -> IterMut {
         self.samples.iter_mut()
     }
 
-    pub fn find_within_sphere_mut<'a>(&'a mut self, center: Vector3<f32>, radius: f32) -> BoxedIterMut {
-        let radius_sqr = radius * radius;
-        Box::new(
-            self.samples.iter_mut()
-                .filter(move |s| s.position.distance2(center) < radius_sqr)
-        )
+    pub fn find_within_sphere_indexes(&self, center: Vector3<f32>, radius: f32) -> Vec<usize> {
+        let radius_sqr = (radius * radius) as f64;
+
+        self.spatial_idx.within(
+            &[center.x as f64, center.y as f64, center.z as f64],
+            radius_sqr,
+            &squared_euclidean
+        ).unwrap().iter().map(move |&(_, &idx)| idx).collect()
     }
 }
 
