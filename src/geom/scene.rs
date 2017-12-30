@@ -35,6 +35,7 @@ pub struct Mesh {
 #[derive(Debug)]
 pub struct Vertex {
     pub position: Vector3<f32>,
+    pub normal: Vector3<f32>,
     pub texcoords: Vector2<f32>,
     pub material_idx: usize,
     pub entity_idx: usize
@@ -86,26 +87,33 @@ impl Scene {
                     |(entity_idx, e)| {
                         let mesh = &e.mesh;
                         let positions = &mesh.positions;
+                        let normals = &mesh.normals;
                         let texcoords = &mesh.texcoords;
                         let material_idx = e.material_idx;
+
+                        assert!(!normals.is_empty());
+                        assert!(!texcoords.is_empty());
 
                         mesh.indices.chunks(3)
                             .map(
                                 move |i| Triangle::new(
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
+                                        normal: Vector3::new(normals[(3*i[0]+0) as usize], normals[(3*i[0]+1) as usize], normals[(3*i[0]+2) as usize]),
                                         texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
                                         material_idx,
                                         entity_idx
                                     },
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
+                                        normal: Vector3::new(normals[(3*i[1]+0) as usize], normals[(3*i[1]+1) as usize], normals[(3*i[1]+2) as usize]),
                                         texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
                                         material_idx,
                                         entity_idx
                                     },
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
+                                        normal: Vector3::new(normals[(3*i[2]+0) as usize], normals[(3*i[2]+1) as usize], normals[(3*i[2]+2) as usize]),
                                         texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
                                         material_idx,
                                         entity_idx

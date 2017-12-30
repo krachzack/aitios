@@ -6,15 +6,20 @@ use std::fs;
 use std::time::Instant;
 use std::path::PathBuf;
 
-use ::geom::surf::{Surface, SurfaceBuilder};
-use ::geom::scene::Scene;
+use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
+use ::geom::scene::{Scene, Triangle};
 use ::geom::octree::Octree;
 use ::geom::intersect::IntersectRay;
 
+use ::cgmath::Vector3;
+
 use ::sink::SceneSink;
 
-use super::ton::TonSource;
+use super::ton::{Ton, TonSource};
 use super::effect::SceneEffect;
+
+use ::rand;
+use ::rand::Rng;
 
 /// Maintains a simulation on a scene with an associated surface
 /// model.
@@ -100,16 +105,18 @@ impl Simulation {
         let octree : Octree<_> = self.scene.triangles().collect();
         info!("Done building octree after {}s", before.elapsed().as_secs());
 
-        info!("Finding initial intersections...  ");
+        info!("Tracing particles and transporting substances...  ");
         let before = Instant::now();
-        let initial_hits : Vec<_> = self.sources.iter()
+        let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
+        let surf = &mut self.surface;
+
+        // First motion state is always trace straight
+        self.sources.iter()
             .flat_map(|src| src.emit())
-            .filter_map(|(ton, ray_origin, ray_direction)|
-                octree.ray_intersection_point(ray_origin, ray_direction)
-                    .map(|p| (ton, p) )
-            ).collect();
+            .for_each(move |(mut ton, ray_origin, ray_direction)| Self::trace_straight(surf, &octree, &mut ton, ray_origin, ray_direction, ton_to_surface_interaction_weight));
         info!("Ok, took {}s", before.elapsed().as_secs());
 
+        /*
         info!("Starting ton tracing... ");
         let before = Instant::now();
         let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
@@ -131,7 +138,68 @@ impl Simulation {
                 }
             }
         }
-        info!("Ok, {}s", before.elapsed().as_secs());
+        info!("Ok, {}s", before.elapsed().as_secs());*/
+    }
+
+    fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+        if let Some(intersection_point) = octree.ray_intersection_point(origin, direction) {
+            let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
+
+            for surfel_idx in &interacting_surfel_idxs {
+                let interacting_surfel = &mut surface.samples[*surfel_idx];
+
+                // REVIEW should only settled tons transport material?
+                Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
+            }
+
+            // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
+            Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
+
+            // TODO trace the particle further
+            let mut rng = rand::thread_rng();
+            let mut random : f32 = rng.gen();
+
+            if random < ton.p_straight {
+                let normal = surface.samples[interacting_surfel_idxs[0]].normal;
+
+                // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
+                let reflection_direction = normal;
+                Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, reflection_direction, ton_to_surface_interaction_weight);
+            } else {
+                // FIXME now settling in all other cases, but should check if parabolic or flow
+            }
+        }
+    }
+
+    fn transport_material(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
+        assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+        let material_transports = interacting_surfel.substances
+            .iter_mut()
+            .zip(
+                ton.substances.iter()
+            );
+
+        for (ref mut surfel_material, &ton_material) in material_transports {
+            **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
+        }
+    }
+
+    fn deteriorate_motion_probabilities(ton: &mut Ton, surfel: &Surfel) {
+        ton.p_straight -= surfel.delta_straight;
+        if ton.p_straight < 0.0 {
+            ton.p_straight = 0.0;
+        }
+
+        ton.p_parabolic -= surfel.delta_parabolic;
+        if ton.p_parabolic < 0.0 {
+            ton.p_parabolic = 0.0;
+        }
+
+        // NOTE the original flow deterioration is max(kf + max(kp - deltaP, 0) - deltaF, 0)
+        ton.p_flow -= surfel.delta_parabolic;
+        if ton.p_flow < 0.0 {
+            ton.p_flow = 0.0;
+        }
     }
 
     fn perform_iteration_effects(&mut self) {

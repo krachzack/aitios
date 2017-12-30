@@ -4,6 +4,10 @@ use super::substance_map_material::SubstanceMapMaterialEffect;
 
 use ::geom::scene::Scene;
 use ::geom::surf::Surface;
+use ::geom::tri::Triangle;
+use ::geom::vtx::Vertex;
+
+use ::cgmath::{Vector2, Vector3};
 
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
@@ -20,10 +24,22 @@ pub struct SubstanceMapper {
 }
 
 /// Sets the strategy for surfel lookup for a given texel
-enum Sampling {
+pub enum Sampling {
     /// Calculates a texture pixel by looking up all surfels within the
     /// given radius in UV space and taking the average
-    Radius(f32)
+    /// The UV distance breaks down on seams but approximates geodesic distance.
+    /// Also, surfels of other entities cannot affect the surfels of this entity,
+    /// since they do not share a common UV space.
+    #[allow(dead_code)]
+    UvRadius(f32),
+    /// Approximates a world-space position for each UV coordinate by looking
+    /// up surfels nearby in UV space and approximating a position using their
+    /// positions and UV coordinates.
+    ///
+    /// Then, near surfels are looked up in position space and these are collected.
+    /// When the radius is larger than the sampling distance, every texel should have
+    /// multiple surfels to work with
+    SpaceRadius(f32)
 }
 
 impl SceneEffect for SubstanceMapper {
@@ -49,10 +65,11 @@ impl SceneEffect for SubstanceMapper {
 }
 
 impl SubstanceMapper {
-    pub fn new(substance_idx: usize, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
+    pub fn new(substance_idx: usize, sampling: Sampling, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
         SubstanceMapper {
             substance_idx,
-            sampling: Sampling::Radius(3.0 / (texture_width as f32)), // within three pixels distance in UV space
+            sampling,
+            //sampling: Sampling::UvRadius(3.0 / (texture_width as f32)), // within three pixels distance in UV space
             texture_width,
             texture_height,
             after_effects
@@ -66,15 +83,78 @@ impl SubstanceMapper {
             self.substance_idx,
             entity_idx,
             match self.sampling {
-                Sampling::Radius(radius) => self.gather_radius(surf, entity_idx, radius, self.texture_width, self.texture_height)
+                Sampling::UvRadius(radius) => self.gather_uv_radius(surf, entity_idx, radius, self.texture_width, self.texture_height),
+                Sampling::SpaceRadius(radius) => self.gather_space_radius(surf, entity_idx, radius, self.texture_width, self.texture_height)
             }
         )
     }
 
-    fn gather_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+    fn gather_space_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 
-        let concentration_tree = self.build_substance_tree(surf, entity_idx);
+        let position_tree = self.build_position_uv_tree(surf, entity_idx);
+
+        // width and height of a pixel in UV space
+        let pixel_width = 1.0 / (tex_width as f64);
+        let pixel_height = 1.0 / (tex_height as f64);
+
+        let mut v = 0.5 * pixel_height;
+
+        for _ in 0..tex_height {
+            let mut u = 0.5 * pixel_width;
+
+            for _ in 0..tex_width {
+                // Position approximated by looking up the 3 nearest surfels in UV space
+                // and then forming a UV-space triangle, then, the position on the given uv
+                // coordinate is approximated from barycentric coordinates calculated for the
+                // desired uv position within the uv triangle and using them to synthesize a position
+                let uvs_and_positions : Vec<_> = position_tree.nearest(
+                    &[u, v],
+                    3,
+                    &squared_euclidean
+                ).unwrap()
+                    .iter()
+                    .map(|t| t.1)
+                    .collect();
+
+                let interpolated_position = Triangle::new(
+                    *uvs_and_positions[0],
+                    *uvs_and_positions[1],
+                    *uvs_and_positions[2]
+                ).interpolate_at( // Interpolate position with barys from uv space
+                    Vector3::new(u as f32, v as f32, 0.0),
+                    |v| v.0
+                );
+
+                if interpolated_position.x.is_finite() && interpolated_position.y.is_finite() && interpolated_position.x.is_finite() {
+                    let surfels = surf.find_within_sphere(interpolated_position, radius);
+
+                    let concentration = if surfels.is_empty() {
+                        NAN
+                    } else {
+                        surfels.iter()
+                            .map(|s| s.substances[self.substance_idx])
+                            .sum::<f32>() / (surfels.len() as f32)
+                    };
+
+                    concentrations.push(concentration);
+                } else {
+                    warn!("Position interpolation failed for UV({}/{}), falling back to using concentration of nearest surfel", u, v);
+                    concentrations.push(surf.nearest(uvs_and_positions[0].0).substances[self.substance_idx]);
+                }
+
+                u += pixel_width;
+            }
+            v += pixel_height;
+        }
+
+        concentrations
+    }
+
+    fn gather_uv_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+        let mut concentrations = Vec::with_capacity(tex_width * tex_height);
+
+        let concentration_tree = self.build_substance_uv_tree(surf, entity_idx);
 
         // width and height of a pixel in UV space
         let pixel_width = 1.0 / (tex_width as f32);
@@ -96,7 +176,7 @@ impl SubstanceMapper {
     }
 
     /// Builds a kdtree of substance values indexed by their position in UV space
-    fn build_substance_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<f32, [f64; 2]> {
+    fn build_substance_uv_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<f32, [f64; 2]> {
         let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
 
         for sample in &surf.samples {
@@ -107,6 +187,26 @@ impl SubstanceMapper {
                 tree.add(
                     pos,
                     concentration
+                ).unwrap();
+            }
+        }
+
+        tree
+    }
+
+    /// Builds a kdtree of substance values indexed by their position in UV space
+    fn build_position_uv_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<(Vector3<f32>, Vector2<f32>), [f64; 2]> {
+        let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
+
+        for sample in &surf.samples {
+            if sample.entity_idx == entity_idx {
+                let pos = [sample.texcoords.x as f64, sample.texcoords.y as f64];
+                let position = sample.position;
+                let texcoords = sample.texcoords;
+
+                tree.add(
+                    pos,
+                    (position, texcoords)
                 ).unwrap();
             }
         }
@@ -135,5 +235,12 @@ impl SubstanceMapper {
             //warn!("No sample at UV {:?}", uv);
             NAN
         }
+    }
+}
+
+impl Vertex for (Vector3<f32>, Vector2<f32>) {
+    // Triangles in UV space
+    fn position(&self) -> Vector3<f32> {
+        Vector3::new(self.1.x, self.1.y, 0.0)
     }
 }

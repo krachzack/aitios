@@ -49,22 +49,23 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.05)
-                    .delta_straight(1.0)
+                s.min_sample_distance(0.02)
+                    // About half of incident gammatons settle
+                    .delta_straight(0.5)
                     .substances(&vec![0.0])
             }
         )
         .add_source(|s| {
             s.p_straight(1.0)
-                .interaction_radius(0.1)
+                .interaction_radius(0.08)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
                 .emission_count(20000)
         })
         .substance_map_size(
             0, // Index of substance that drives the blend
-            256, // material that gets changed
-            256
+            1024, // material that gets changed
+            1024
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(

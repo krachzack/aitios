@@ -1,6 +1,7 @@
 use super::*;
 
 use ::cgmath::{Vector2, Vector3};
+use ::cgmath::prelude::*;
 use ::nearest_kdtree::KdTree;
 use super::sampling::throw_darts;
 
@@ -65,6 +66,7 @@ impl SurfaceBuilder {
 
         let prototype_surfel = Surfel {
             position: Vector3::new(-1.0, -1.0, -1.0),
+            normal: Vector3::new(0.0, 0.0, 0.0),
             texcoords: Vector2::new(-1.0, -1.0),
             entity_idx: 0,
             delta_straight: self.delta_straight,
@@ -119,8 +121,12 @@ impl SurfaceBuilder {
                         texcoords.y = 1.0;
                     }
 
+                    let normal = t.interpolate_at(position, |v| v.normal);
+                    let normal = normal.normalize(); // normalize since interpolation can cause distortions
+
                     Surfel {
                         position,
+                        normal,
                         texcoords,
                         entity_idx: t.vertices[0].entity_idx,
                         delta_straight: delta_straight,

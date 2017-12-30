@@ -15,7 +15,7 @@ use ::cgmath::Vector4;
 
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{SubstanceMapper, SubstanceColorEffect, SubstanceMapMaterialEffect};
+use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect};
 
 /// Builds a simulation according to provided parameters and closures.
 ///
@@ -201,7 +201,7 @@ impl SimulationBuilder {
 
     pub fn build(self) -> Simulation {
         let substance_mapper = SubstanceMapper::new(
-            self.substance_idx, self.substance_map_width, self.substance_map_height, self.effects
+            self.substance_idx, Sampling::SpaceRadius(0.1), self.substance_map_width, self.substance_map_height, self.effects
         );
 
         Simulation::new(

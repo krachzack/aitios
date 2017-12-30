@@ -7,6 +7,7 @@ mod substance_mapper;
 pub use self::scene::SceneEffect;
 pub use self::substance_color::SubstanceColorEffect;
 pub use self::substance_mapper::SubstanceMapper;
+pub use self::substance_mapper::Sampling;
 pub use self::substance_map_material::SubstanceMapMaterialEffect;
 
 /*use std::fs::File;

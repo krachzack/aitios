@@ -10,4 +10,3 @@ impl Vertex for Vector3<f32> {
         *self
     }
 }
-

@@ -8,7 +8,6 @@ use std::io;
 use std::slice;
 
 use ::cgmath::{Vector2, Vector3};
-use ::cgmath::prelude::*;
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
 
@@ -27,18 +26,19 @@ pub struct Surface {
 /// Represents an element of the surface of an object
 pub struct Surfel {
     pub position: Vector3<f32>,
+    pub normal: Vector3<f32>,
     pub texcoords: Vector2<f32>,
     /// Index of the entity in the scene that the triangle that this surfel was generated from belongs to
     pub entity_idx: usize,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
     #[allow(dead_code)]
-    delta_straight: f32,
+    pub delta_straight: f32,
     /// Deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
     #[allow(dead_code)]
-    delta_parabolic: f32,
+    pub delta_parabolic: f32,
     /// Deterioration rate of the probability of a gammaton flowing in a tangent direction
     #[allow(dead_code)]
-    delta_flow: f32,
+    pub delta_flow: f32,
     /// Holds the amount of substances as numbers in the interval 0..1
     pub substances: Vec<f32>
 }
@@ -70,7 +70,7 @@ impl Surface {
         Ok(written)
     }
 
-    pub fn nearest<'a>(&'a mut self, from: Vector3<f32>) -> &'a mut Surfel {
+    pub fn nearest_mut<'a>(&'a mut self, from: Vector3<f32>) -> &'a mut Surfel {
         assert!(!self.samples.is_empty());
 
         let x = from.x as f64;
@@ -79,6 +79,17 @@ impl Surface {
 
         let (_, &nearest_idx) = self.spatial_idx.nearest(&[x, y, z], 1, &squared_euclidean).unwrap()[0];
         &mut self.samples[nearest_idx]
+    }
+
+    pub fn nearest<'a>(&'a self, from: Vector3<f32>) -> &'a Surfel {
+        assert!(!self.samples.is_empty());
+
+        let x = from.x as f64;
+        let y = from.y as f64;
+        let z = from.z as f64;
+
+        let (_, &nearest_idx) = self.spatial_idx.nearest(&[x, y, z], 1, &squared_euclidean).unwrap()[0];
+        &self.samples[nearest_idx]
     }
 
     pub fn iter<'a>(&'a self) -> Iter {
