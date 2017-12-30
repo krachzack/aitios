@@ -5,11 +5,10 @@ use super::substance_map_material::SubstanceMapMaterialEffect;
 use ::geom::scene::Scene;
 use ::geom::surf::Surface;
 
-use ::cgmath::Vector2;
-use ::cgmath::prelude::*;
+use ::nearest_kdtree::KdTree;
+use ::nearest_kdtree::distance::squared_euclidean;
 
 use std::f32::NAN;
-
 use std::time::Instant;
 
 pub struct SubstanceMapper {
@@ -53,7 +52,7 @@ impl SubstanceMapper {
     pub fn new(substance_idx: usize, texture_width: usize, texture_height: usize, after_effects: Vec<Box<SubstanceMapMaterialEffect>>) -> SubstanceMapper {
         SubstanceMapper {
             substance_idx,
-            sampling: Sampling::Radius(3.0 / (texture_width as f32)), // within three pixels in UV space
+            sampling: Sampling::Radius(3.0 / (texture_width as f32)), // within three pixels distance in UV space
             texture_width,
             texture_height,
             after_effects
@@ -75,6 +74,8 @@ impl SubstanceMapper {
     fn gather_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 
+        let concentration_tree = self.build_substance_tree(surf, entity_idx);
+
         // width and height of a pixel in UV space
         let pixel_width = 1.0 / (tex_width as f32);
         let pixel_height = 1.0 / (tex_height as f32);
@@ -85,7 +86,7 @@ impl SubstanceMapper {
             let mut u = 0.5 * pixel_width;
 
             for _ in 0..tex_width {
-                concentrations.push(self.gather_concentration_at(surf, entity_idx, u, v, radius));
+                concentrations.push(self.gather_concentration_at(&concentration_tree, u, v, radius));
                 u += pixel_width;
             }
             v += pixel_height;
@@ -94,23 +95,40 @@ impl SubstanceMapper {
         concentrations
     }
 
-    fn gather_concentration_at(&self, surf: &Surface, entity_idx: usize, u: f32, v: f32, radius: f32) -> f32 {
-        let uv = Vector2::new(u, v);
-        let (surfel_count, concentration_sum) = surf.iter()
-            .filter(|s|
-                s.entity_idx == entity_idx &&
-                s.texcoords.distance2(uv) < (radius * radius)
-            )
-            .map(|s| s.substances[self.substance_idx])
+    /// Builds a kdtree of substance values indexed by their position in UV space
+    fn build_substance_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<f32, [f64; 2]> {
+        let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
+
+        for sample in &surf.samples {
+            if sample.entity_idx == entity_idx {
+                let pos = [sample.texcoords.x as f64, sample.texcoords.y as f64];
+                let concentration = sample.substances[self.substance_idx];
+
+                tree.add(
+                    pos,
+                    concentration
+                ).unwrap();
+            }
+        }
+
+        tree
+    }
+
+    fn gather_concentration_at(&self, concentrations: &KdTree<f32, [f64; 2]>, u: f32, v: f32, radius: f32) -> f32 {
+        let uv = [ u as f64, v as f64 ];
+        // REVIEW since we use squared_euclidean, we should use radius^2 ?
+        let within_radius = concentrations.within(&uv, (radius*radius) as f64, &squared_euclidean).unwrap();
+
+        let (sample_count, concentration_sum) = within_radius.iter()
             .fold(
                 (0_usize, 0.0_f32),
-                |(count, concentration_sum), concentration| {
+                |(count, concentration_sum), &(_, &concentration)| {
                     (count + 1, concentration_sum + concentration)
                 }
             );
 
-        if surfel_count > 0 {
-            concentration_sum / (surfel_count as f32)
+        if sample_count > 0 {
+            concentration_sum / (sample_count as f32)
         } else {
             //warn!("No sample at UV {:?}", uv);
             NAN

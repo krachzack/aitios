@@ -1,0 +1,7 @@
+[package]
+name = "nearest_kdtree"
+version = "0.1.0"
+authors = ["krachzack <hello@phstadler.com>"]
+
+[dependencies]
+kdtree = "0.4.0"

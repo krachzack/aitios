@@ -57,13 +57,13 @@ fn buddha_room_bronze_test() {
         .add_source(|s| {
             s.p_straight(1.0)
                 .substances(&vec![1.0])
-                .point_shaped(0.0, 2.0, 0.0)
+                .point_shaped(0.0, 3.0, 0.0)
                 .emission_count(20000)
         })
         .substance_map_size(
             0, // Index of substance that drives the blend
-            256, // material that gets changed
-            256
+            1024, // material that gets changed
+            1024
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(

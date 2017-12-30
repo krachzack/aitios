@@ -7,6 +7,7 @@ extern crate rand;
 extern crate image;
 extern crate kdtree;
 extern crate float_extras;
+extern crate nearest_kdtree;
 
 mod geom;
 mod sim;

@@ -22,9 +22,8 @@ use super::effect::{SubstanceMapper, SubstanceColorEffect, SubstanceMapMaterialE
 /// # Examples
 ///
 /// The following example builds and runs a simulation on
-/// `"test-scenes/buddha-scene/buddha-scene.obj"` where the diffuse map
-/// of the `"bronze"` material is blended towards an image file
-/// `"test-scenes/buddha-scene/weathered_bronze.png"`.
+/// `"test-scenes/buddha-scene/buddha-scene.obj"` and adds a sink for
+/// the weathered scene.
 ///
 /// ```rust,no_run
 /// use aitios::SimulationBuilder;
@@ -43,13 +42,6 @@ use super::effect::{SubstanceMapper, SubstanceColorEffect, SubstanceMapMaterialE
 ///             .point_shaped(0.0, 2.0, 0.0)
 ///             .emission_count(40000)
 ///     })
-///     .add_effect_blend(
-///         0, // Index of substance that drives the blend
-///         "bronze", // material that gets changed
-///         "map_Kd", // map of the material that gets changed
-///         "test-scenes/buddha-scene/weathered_bronze.png",
-///         "output/weathered_bronze.png"
-///     )
 ///     .add_scene_sink_obj_mtl(
 ///         "output/buddha-scene-weathered.obj",
 ///         "output/buddha-scene-weathered.mtl"
