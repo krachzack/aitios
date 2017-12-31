@@ -51,13 +51,13 @@ fn buddha_room_bronze_test() {
             |s| {
                 s.min_sample_distance(0.02)
                     // About half of incident gammatons settle
-                    .delta_straight(0.5)
+                    .delta_straight(0.3)
                     .substances(&vec![0.0])
             }
         )
         .add_source(|s| {
             s.p_straight(1.0)
-                .interaction_radius(0.08)
+                .interaction_radius(0.04)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
                 .emission_count(20000)

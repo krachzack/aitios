@@ -160,11 +160,17 @@ impl Simulation {
             let mut random : f32 = rng.gen();
 
             if random < ton.p_straight {
+                let random_on_unit_sphere = Vector3::new(
+                    rng.next_f32(),
+                    rng.next_f32(),
+                    rng.next_f32()
+                ).normalize();
                 let normal = surface.samples[interacting_surfel_idxs[0]].normal;
+                let outgoing_direction = (random_on_unit_sphere + normal).normalize();
 
                 // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
                 let reflection_direction = normal;
-                Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, reflection_direction, ton_to_surface_interaction_weight);
+                Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction, ton_to_surface_interaction_weight);
             } else {
                 // FIXME now settling in all other cases, but should check if parabolic or flow
             }
