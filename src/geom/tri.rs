@@ -180,6 +180,18 @@ impl<V> Triangle<V>
             .sum()
     }
 
+    pub fn interpolate_bary<F, T>(&self, weights: [f32; 3], vertex_to_val_fn: F) -> T
+        where F: Fn(&V) -> T,
+            T: Sum<<T as Mul<f32>>::Output> + Mul<f32>
+    {
+        let values = self.vertices.iter().map(vertex_to_val_fn);
+
+        weights.iter()
+            .zip(values)
+            .map(|(w, v)| v * *w)
+            .sum()
+    }
+
     /// Checks if the triangle is completely inside the given sphere
     pub fn is_inside_sphere(&self, center: Vector3<f32>, radius: f32) -> bool {
         let radius_sqr = radius * radius;

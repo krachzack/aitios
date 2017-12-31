@@ -2,7 +2,7 @@ use super::scene::SceneEffect;
 use super::substance_map::SubstanceMap;
 use super::substance_map_material::SubstanceMapMaterialEffect;
 
-use ::geom::scene::Scene;
+use ::geom::scene::{Scene, Entity};
 use ::geom::surf::Surface;
 use ::geom::tri::Triangle;
 use ::geom::vtx::Vertex;
@@ -12,7 +12,7 @@ use ::cgmath::{Vector2, Vector3};
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
 
-use std::f32::NAN;
+use std::f32::{NAN, EPSILON};
 use std::time::Instant;
 
 pub struct SubstanceMapper {
@@ -50,7 +50,7 @@ impl SceneEffect for SubstanceMapper {
 
         for entity_idx in 0..scene.entities.len() {
             info!("Gathering {}x{} substance {} map for entity {}...", self.texture_width, self.texture_height, self.substance_idx, scene.entities[entity_idx].name);
-            let substance_tex = self.gather(surf, entity_idx);
+            let substance_tex = self.gather(scene, surf, entity_idx);
             info!("Ok, took {}s", start.elapsed().as_secs());
 
             for effect in &self.after_effects {
@@ -76,7 +76,7 @@ impl SubstanceMapper {
         }
     }
 
-    fn gather(&self, surf: &Surface, entity_idx: usize) -> SubstanceMap {
+    fn gather(&self, scene: &Scene, surf: &Surface, entity_idx: usize) -> SubstanceMap {
         SubstanceMap::new(
             self.texture_width,
             self.texture_height,
@@ -84,15 +84,15 @@ impl SubstanceMapper {
             entity_idx,
             match self.sampling {
                 Sampling::UvRadius(radius) => self.gather_uv_radius(surf, entity_idx, radius, self.texture_width, self.texture_height),
-                Sampling::SpaceRadius(radius) => self.gather_space_radius(surf, entity_idx, radius, self.texture_width, self.texture_height)
+                Sampling::SpaceRadius(radius) => self.gather_space_radius(&scene.entities[entity_idx], surf, radius, self.texture_width, self.texture_height)
             }
         )
     }
 
-    fn gather_space_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+    fn gather_space_radius(&self, ent: &Entity, surf: &Surface, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 
-        let position_tree = self.build_position_uv_tree(surf, entity_idx);
+        let tri_tree = self.build_triangle_uv_tree(ent);
 
         // width and height of a pixel in UV space
         let pixel_width = 1.0 / (tex_width as f64);
@@ -104,44 +104,77 @@ impl SubstanceMapper {
             let mut u = 0.5 * pixel_width;
 
             for _ in 0..tex_width {
+                // TODO alternative strategy
+                // store triangle centers in UV space, look up nearest triangles
+                // and select the first triangle that contains at least one edge of the texel in uv coordinates,
+                // or if no triangle contains it, select the closest triangle for interpolation (or drop it?)
+                // then, translate the UVs to barycentric coordinates and use them to
+                // interpolate a position
+
+                // See: https://answers.unity.com/questions/374778/how-to-convert-pixeluv-coordinates-to-world-space.html
+
                 // Position approximated by looking up the 3 nearest surfels in UV space
                 // and then forming a UV-space triangle, then, the position on the given uv
                 // coordinate is approximated from barycentric coordinates calculated for the
                 // desired uv position within the uv triangle and using them to synthesize a position
-                let uvs_and_positions : Vec<_> = position_tree.nearest(
+
+                // Find the 4 triangles with the nearest centers in UV space
+                let interpolated_position = tri_tree.nearest(
                     &[u, v],
-                    3,
+                    4,
                     &squared_euclidean
                 ).unwrap()
                     .iter()
+                    // Select the triangle reference from the tuple
                     .map(|t| t.1)
-                    .collect();
+                    // Calculate barys in UV space
+                    .map(|t| (t, t.barycentric_at(Vector3::new(u as f32, v as f32, 0.0))) )
+                    // select the first triangle where the barycentric coordinates are inside
+                    /*.find(|&(_, bary)|
+                        if bary[1] + bary[2] > 1.0 {
+                            false
+                        } else if bary[1] < 0.0 {
+                            false
+                        } else if bary[2] < 0.0 {
+                            false
+                        } else {
+                            true
+                        }
+                    )
+                    // and if found, interpolate the position based on the synthesized UV coordinates
+                    */
+                    .min_by_key(|&(_, bary)| {
+                        let mut error = 0.0;
+                        if bary[1] + bary[2] > 1.0 {
+                            error += bary[0];
+                        } else if bary[1] < 0.0 {
+                            error -= bary[1];
+                        } else if bary[2] < 0.0 {
+                            error -= bary[2];
+                        }
+                        (error * 1_000_000_000.0) as u64
+                    })
+                    .map(|(tri, bary)| tri.interpolate_bary(bary, |v| v.0));
 
-                let interpolated_position = Triangle::new(
-                    *uvs_and_positions[0],
-                    *uvs_and_positions[1],
-                    *uvs_and_positions[2]
-                ).interpolate_at( // Interpolate position with barys from uv space
-                    Vector3::new(u as f32, v as f32, 0.0),
-                    |v| v.0
-                );
+                let mut concentration = if let Some(position) = interpolated_position {
+                    let surfels = surf.find_within_sphere(position, radius);
 
-                if interpolated_position.x.is_finite() && interpolated_position.y.is_finite() && interpolated_position.x.is_finite() {
-                    let surfels = surf.find_within_sphere(interpolated_position, radius);
-
-                    let concentration = if surfels.is_empty() {
-                        NAN
+                    if surfels.is_empty() {
+                        //warn!("Could not find surfels near position {:?}", position);
+                        None
                     } else {
-                        surfels.iter()
+                        let val = surfels.iter()
                             .map(|s| s.substances[self.substance_idx])
-                            .sum::<f32>() / (surfels.len() as f32)
-                    };
+                            .sum::<f32>() / (surfels.len() as f32);
 
-                    concentrations.push(concentration);
+                        Some(val)
+                    }
                 } else {
-                    warn!("Position interpolation failed for UV({}/{}), falling back to using concentration of nearest surfel", u, v);
-                    concentrations.push(surf.nearest(uvs_and_positions[0].0).substances[self.substance_idx]);
-                }
+                    warn!("Could not translate UV ({}/{}) to a position", u, v);
+                    None
+                };
+
+                concentrations.push(concentration.unwrap_or(NAN));
 
                 u += pixel_width;
             }
@@ -195,19 +228,21 @@ impl SubstanceMapper {
     }
 
     /// Builds a kdtree of substance values indexed by their position in UV space
-    fn build_position_uv_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<(Vector3<f32>, Vector2<f32>), [f64; 2]> {
+    fn build_triangle_uv_tree(&self, entity: &Entity) -> KdTree<Triangle<(Vector3<f32>, Vector2<f32>)>, [f64; 2]> {
         let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
 
-        for sample in &surf.samples {
-            if sample.entity_idx == entity_idx {
-                let pos = [sample.texcoords.x as f64, sample.texcoords.y as f64];
-                let position = sample.position;
-                let texcoords = sample.texcoords;
+        for tri in entity.triangles() {
+            if tri.area() > EPSILON {
+                let world_center = tri.center();
+                let tex_center = tri.interpolate_at(world_center, |v| v.texcoords);
+                let tex_center = [ tex_center.x as f64, tex_center.y as f64 ];
+                let tri = Triangle::new(
+                    (tri.vertices[0].position, tri.vertices[0].texcoords),
+                    (tri.vertices[1].position, tri.vertices[1].texcoords),
+                    (tri.vertices[2].position, tri.vertices[2].texcoords)
+                );
 
-                tree.add(
-                    pos,
-                    (position, texcoords)
-                ).unwrap();
+                tree.add(tex_center, tri).unwrap();
             }
         }
 
