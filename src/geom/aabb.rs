@@ -3,7 +3,7 @@ use std::f32::{INFINITY, NEG_INFINITY};
 use ::cgmath::Vector3;
 
 /// An axis-aligned bounding box in 3D
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Aabb {
     pub min: Vector3<f32>,
     pub max: Vector3<f32>
@@ -116,13 +116,13 @@ impl Aabb {
             self.min,
             self.max
         ];
- 
+
         let mut tmin = (bounds[line_sign[0]].x - line_origin.x) * line_dir_inv.x;
         let mut tmax = (bounds[1-line_sign[0]].x - line_origin.x) * line_dir_inv.x;
 
         let tymin = (bounds[line_sign[1]].y - line_origin.y) * line_dir_inv.y;
         let tymax = (bounds[1-line_sign[1]].y - line_origin.y) * line_dir_inv.y;
-    
+
         if (tmin > tymax) || (tymin > tmax) {
             return None;
         }
@@ -135,7 +135,7 @@ impl Aabb {
 
         let tzmin = (bounds[line_sign[2]].z - line_origin.z) * line_dir_inv.z;
         let tzmax = (bounds[1-line_sign[2]].z - line_origin.z) * line_dir_inv.z;
-    
+
         if (tmin > tzmax) || (tzmin > tmax) {
             return None;
         }

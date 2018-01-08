@@ -3,6 +3,8 @@ use ::cgmath::Vector3;
 use ::cgmath::InnerSpace;
 use ::rand;
 
+use std::f32::consts::PI;
+
 pub struct Ton {
     /// Probability of moving further in a straight line
     #[allow(dead_code)]
@@ -21,8 +23,17 @@ pub struct Ton {
 }
 
 #[derive(Clone)]
+// TODO the sampling should be stratified, e.g. by subdividing the possible directions into patches and ensuring every one gets its turn
 enum Shape {
-    Point { position: Vector3<f32> }
+    /// A point source shooting equally in all directions
+    Point { position: Vector3<f32> },
+    /// A hemispherical source aligned with the y axis shooting inward.
+    Hemisphere {
+        /// The center of the bottom disk of the hemisphere
+        center: Vector3<f32>,
+        /// Distance from the center for ray origins
+        radius: f32
+    }
 }
 
 pub struct TonSource {
@@ -85,7 +96,25 @@ impl TonSource {
                         rand::random::<f32>() - 0.5,
                         rand::random::<f32>() - 0.5
                     ).normalize()
-                )
+                ),
+                Shape::Hemisphere { center, radius } => {
+                    let unit = sample_unit_hemisphere();
+                    let origin = center + radius * unit;
+                    // REVIEW wait, should they really all be flying towards the center?
+                    let direction = -unit;
+
+                    (
+                        Ton {
+                            p_straight,
+                            p_parabolic,
+                            p_flow,
+                            interaction_radius,
+                            substances: substances.clone()
+                        },
+                        origin,
+                        direction
+                    )
+                }
             }
         );
 
@@ -95,6 +124,16 @@ impl TonSource {
     pub fn emission_count(&self) -> u32 {
         self.emission_count
     }
+}
+
+fn sample_unit_hemisphere() -> Vector3<f32> {
+    // REVIEW this is certainly not uniform
+
+    let x = rand::random::<f32>() - 0.5;
+    let y = rand::random::<f32>() * 0.5;
+    let z = rand::random::<f32>() - 0.5;
+
+    Vector3::new(x, y, z).normalize()
 }
 
 impl TonSourceBuilder {
@@ -134,6 +173,11 @@ impl TonSourceBuilder {
 
     pub fn point_shaped(mut self, pos_x: f32, pos_y: f32, pos_z: f32) -> TonSourceBuilder {
         self.shape = Shape::Point { position: Vector3::new(pos_x, pos_y, pos_z) };
+        self
+    }
+
+    pub fn hemisphere_shaped(mut self, center: Vector3<f32>, radius: f32) -> TonSourceBuilder {
+        self.shape = Shape::Hemisphere { center, radius };
         self
     }
 

@@ -10,11 +10,16 @@ use ::cgmath::{Vector2, Vector3};
 use super::tri;
 use super::vtx;
 use super::intersect::IntersectRay;
+use super::spatial::Spatial;
+use super::aabb::Aabb;
+
+use std::f32::{INFINITY, NEG_INFINITY};
 
 pub type Triangle = tri::Triangle<Vertex>;
 
 pub struct Scene {
     pub entities: Vec<Entity>,
+    bounds: Aabb,
     /// Materials as loaded from the OBJ, not the substances being carried
     pub materials: Vec<tobj::Material>
 }
@@ -52,7 +57,11 @@ impl Scene {
     pub fn empty() -> Scene {
         Scene {
             entities: Vec::new(),
-            materials: Vec::new()
+            materials: Vec::new(),
+            bounds: Aabb {
+                min: Vector3::new(INFINITY, INFINITY, INFINITY),
+                max: Vector3::new(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY),
+            }
         }
     }
 
@@ -61,7 +70,38 @@ impl Scene {
     pub fn load_from_file(obj_file_path: &str) -> Scene {
         let (models, materials) = tobj::load_obj(&Path::new(obj_file_path)).unwrap();
 
+        let (min, max) = models.iter()
+            .flat_map(|m| m.mesh.positions.chunks(3))
+            .fold(
+                (Vector3::new(INFINITY, INFINITY, INFINITY), Vector3::new(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY)),
+                |(mut min, mut max), position| {
+                    if position[0] < min.x {
+                        min.x = position[0];
+                    }
+                    if position[0] > max.x {
+                        max.x = position[0];
+                    }
+
+                    if position[1] < min.y {
+                        min.y = position[1];
+                    }
+                    if position[1] > max.y {
+                        max.y = position[1];
+                    }
+
+                    if position[2] < min.z {
+                        min.z = position[2];
+                    }
+                    if position[2] > max.z {
+                        max.z = position[2];
+                    }
+
+                    (min, max)
+                }
+            );
+
         Scene {
+            bounds: Aabb { min, max },
             entities: models.into_iter()
                 .enumerate()
                 .map(move |(idx, m)| {
@@ -143,6 +183,12 @@ impl Scene {
     /// Calculates total triangle count in scene
     pub fn triangle_count(&self) -> usize {
         self.entities.iter().map(|e| e.mesh.indices.len() / 3).sum()
+    }
+}
+
+impl Spatial for Scene {
+    fn bounds(&self) -> Aabb {
+        self.bounds.clone()
     }
 }
 

@@ -12,6 +12,7 @@ use ::geom::octree::Octree;
 use ::geom::intersect::IntersectRay;
 
 use ::cgmath::Vector3;
+use ::cgmath::prelude::*;
 
 use ::sink::SceneSink;
 
@@ -145,12 +146,17 @@ impl Simulation {
         if let Some(intersection_point) = octree.ray_intersection_point(origin, direction) {
             let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 
-            for surfel_idx in &interacting_surfel_idxs {
+            if interacting_surfel_idxs.is_empty() {
+                warn!("Ton intersected geometry but did not interact with any surfels, terminating early");
+                return;
+            }
+
+            /*for surfel_idx in &interacting_surfel_idxs {
                 let interacting_surfel = &mut surface.samples[*surfel_idx];
 
-                // REVIEW should only settled tons transport material?
+                // FIXME should only settled tons transport material? The fur simulation implements it that way
                 Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
-            }
+            }*/
 
             // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
             Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
@@ -169,10 +175,19 @@ impl Simulation {
                 let outgoing_direction = (random_on_unit_sphere + normal).normalize();
 
                 // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
-                let reflection_direction = normal;
+                //let reflection_direction = normal;
                 Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction, ton_to_surface_interaction_weight);
+            } else if random < (ton.p_straight + ton.p_parabolic) {
+                // TODO parabolic
+            } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+                // TODO flow
             } else {
-                // FIXME now settling in all other cases, but should check if parabolic or flow
+                for surfel_idx in &interacting_surfel_idxs {
+                    let interacting_surfel = &mut surface.samples[*surfel_idx];
+
+                    // FIXME should only settled tons transport material? The fur simulation implements it that way
+                    Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
+                }
             }
         }
     }

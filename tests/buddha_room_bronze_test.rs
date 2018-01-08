@@ -44,28 +44,36 @@ fn buddha_room_bronze_test() {
     // TODO decouple simulation from effects
 
     aitios::SimulationBuilder::new()
-        .ton_to_surface_interaction_weight(0.2)
+        .ton_to_surface_interaction_weight(0.15)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.02)
+                s.min_sample_distance(0.03)
                     // About half of incident gammatons settle
-                    .delta_straight(0.3)
+                    .delta_straight(0.5)
                     .substances(&vec![0.0])
             }
         )
-        .add_source(|s| {
+        .add_environment_source(|s| {
             s.p_straight(1.0)
-                .interaction_radius(0.04)
+                .interaction_radius(0.05)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
-                .emission_count(20000)
+                .emission_count(100000)
         })
+        .add_source(|s| {
+            s.p_straight(1.0)
+                .interaction_radius(0.05)
+                .substances(&vec![1.0])
+                .point_shaped(0.0, 15.0, 0.0)
+                .emission_count(100000)
+        })
+        .substance_map_gather_radius(0.05)
         .substance_map_size(
-            0, // Index of substance that drives the blend
-            1024, // material that gets changed
-            1024
+            0,
+            2048,
+            2048
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(

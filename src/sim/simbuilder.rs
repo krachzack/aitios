@@ -6,12 +6,15 @@ use std::path::PathBuf;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
+use ::geom::spatial::Spatial;
 
 use ::sink::*;
 use ::sink::obj::ObjSink;
 use ::sink::mtl::MtlSink;
 
 use ::cgmath::Vector4;
+use ::cgmath::Vector3;
+use ::cgmath::prelude::*;
 
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
@@ -65,7 +68,8 @@ pub struct SimulationBuilder {
     surfel_obj_path: Option<PathBuf>,
     substance_idx: usize,
     substance_map_width: usize,
-    substance_map_height: usize
+    substance_map_height: usize,
+    substance_map_sampling: Sampling
 }
 
 impl SimulationBuilder {
@@ -83,7 +87,8 @@ impl SimulationBuilder {
             surfel_obj_path: None,
             substance_idx: 0,
             substance_map_width: 4096,
-            substance_map_height: 4096
+            substance_map_height: 4096,
+            substance_map_sampling: Sampling::SpaceRadius(0.1)
         }
     }
 
@@ -145,8 +150,25 @@ impl SimulationBuilder {
         self
     }
 
+    pub fn add_environment_source<F>(mut self, build: F) -> SimulationBuilder
+        where F: FnOnce(TonSourceBuilder) -> TonSourceBuilder
+    {
+        let aabb = self.scene.bounds();
+        let bottom_center = 0.5 * (aabb.min + Vector3::new(aabb.max.x, aabb.min.y, aabb.max.z));
+        let radius = aabb.max.distance(aabb.min);
+
+        self.sources.push(
+            build(TonSourceBuilder::new())
+                .hemisphere_shaped(bottom_center, radius)
+                .build()
+        );
+
+        self
+    }
+
     pub fn add_source<F>(mut self, build: F) -> SimulationBuilder
-        where F: FnOnce(TonSourceBuilder) -> TonSourceBuilder {
+        where F: FnOnce(TonSourceBuilder) -> TonSourceBuilder
+    {
 
         self.sources.push(
             build(TonSourceBuilder::new()).build()
@@ -173,12 +195,17 @@ impl SimulationBuilder {
         self
     }
 
+    pub fn substance_map_gather_radius(mut self, radius: f32) -> SimulationBuilder {
+        self.substance_map_sampling = Sampling::SpaceRadius(radius);
+        self
+    }
+
     pub fn add_effect_density_map(mut self, output_directory: &str) -> SimulationBuilder {
         self.effects.push(
             Box::new(
                 SubstanceColorEffect::new(
-                    Vector4::new((0.0 / 255.0), (0.0 / 255.0), (0.0 / 255.0), 1.0), //Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
-                    Vector4::new((255.0 / 255.0), (255.0 / 255.0), (255.0 / 255.0), 1.0), //Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
+                    Vector4::new((255.0 / 255.0), (255.0 / 255.0), (255.0 / 255.0), 1.0), //Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
+                    Vector4::new((0.0 / 255.0), (0.0 / 255.0), (0.0 / 255.0), 1.0), //Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
                     Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
                     output_directory
                 )
@@ -201,7 +228,7 @@ impl SimulationBuilder {
 
     pub fn build(self) -> Simulation {
         let substance_mapper = SubstanceMapper::new(
-            self.substance_idx, Sampling::SpaceRadius(0.1), self.substance_map_width, self.substance_map_height, self.effects
+            self.substance_idx, self.substance_map_sampling, self.substance_map_width, self.substance_map_height, self.effects
         );
 
         Simulation::new(
