@@ -12,7 +12,9 @@ use ::cgmath::{Vector2, Vector3};
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
 
-use std::f32::{NAN, EPSILON};
+use std::f32;
+use std::f32::{NAN, EPSILON, NEG_INFINITY};
+use std::f32::consts::PI;
 use std::time::Instant;
 
 pub struct SubstanceMapper {
@@ -157,18 +159,39 @@ impl SubstanceMapper {
                     .map(|(tri, bary)| tri.interpolate_bary(bary, |v| v.0));
 
                 let mut concentration = if let Some(position) = interpolated_position {
-                    let surfels = surf.find_within_sphere(position, radius);
+                    let surfels = surf.nearest_n(position, 4);
+
+                    let sample_radius = surfels.iter()
+                        .map(|&(dist, _)| dist)
+                        .fold(NEG_INFINITY, f32::max);
+
+                    // This is enspired by photon mapping, see: https://graphics.stanford.edu/courses/cs348b-00/course8.pdf
+
+                    // > 1, characterizes the filter
+                    let k = 1.9;
+
+                    let concentration = surfels.iter()
+                        .map(|&(dist, surfel)| (1.0 - (dist / (k * sample_radius))) * surfel.substances[self.substance_idx])
+                        .sum::<f32>() / (/*PI * sample_radius * sample_radius*/ surfels.len() as f32);
+
+                    Some(concentration)
+
+                    /*let surfels = surf.find_within_sphere(position, radius);
 
                     if surfels.is_empty() {
                         //warn!("Could not find surfels near position {:?}", position);
                         None
                     } else {
+                        /*let val = surfels.iter()
+                            .map(|s| s.substances[self.substance_idx])
+                            .sum::<f32>() / (surfels.len() as f32);*/
+
                         let val = surfels.iter()
                             .map(|s| s.substances[self.substance_idx])
                             .sum::<f32>() / (surfels.len() as f32);
 
                         Some(val)
-                    }
+                    }*/
                 } else {
                     warn!("Could not translate UV ({}/{}) to a position", u, v);
                     None

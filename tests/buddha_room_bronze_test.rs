@@ -69,11 +69,11 @@ fn buddha_room_bronze_test() {
                 .point_shaped(0.0, 15.0, 0.0)
                 .emission_count(100000)
         })
-        .substance_map_gather_radius(0.05)
+        .substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
-            2048,
-            2048
+            1024,
+            1024
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(

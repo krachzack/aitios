@@ -3,8 +3,6 @@ use ::cgmath::Vector3;
 use ::cgmath::InnerSpace;
 use ::rand;
 
-use std::f32::consts::PI;
-
 pub struct Ton {
     /// Probability of moving further in a straight line
     #[allow(dead_code)]

@@ -92,6 +92,20 @@ impl Surface {
         &self.samples[nearest_idx]
     }
 
+    pub fn nearest_n<'a>(&'a self, from: Vector3<f32>, count: usize) -> Vec<(f32, &'a Surfel)> {
+        assert!(self.samples.len() >= count);
+
+        let x = from.x as f64;
+        let y = from.y as f64;
+        let z = from.z as f64;
+
+        let nearest_idxs = self.spatial_idx.nearest(&[x, y, z], count, &squared_euclidean).unwrap();
+
+        nearest_idxs.iter()
+            .map(|n| (n.0 as f32, &self.samples[*n.1]))
+            .collect()
+    }
+
     pub fn iter<'a>(&'a self) -> Iter {
         self.samples.iter()
     }
