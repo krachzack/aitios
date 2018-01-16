@@ -4,7 +4,7 @@ use super::SceneSink;
 
 use ::geom::scene::Scene;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::Write;
 
@@ -19,10 +19,13 @@ impl MtlSink {
 }
 
 impl SceneSink for MtlSink {
-    fn serialize(&self, scene: &Scene) -> Result<()> {
-        let mut mtl = File::create(&self.mtl_path)?;
+    fn serialize(&self, scene: &Scene, output_prefix: &Path) -> Result<()> {
+        let mut output_path = PathBuf::from(output_prefix);
+        output_path.push(&self.mtl_path);
 
-        info!("Writing MTL output file {:?}...", self.mtl_path);
+        info!("Writing MTL output file {:?}...", output_path);
+
+        let mut mtl = File::create(&output_path)?;
 
         // Write header
         mtl.write("# aitios procedurally weathered MTL file\n".as_bytes())?;

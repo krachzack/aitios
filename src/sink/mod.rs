@@ -6,13 +6,15 @@ use std::error;
 use std::result;
 use std::io;
 
+use std::path::Path;
+
 pub mod mtl;
 pub mod obj;
 
 pub type Result<T> = result::Result<T, Error>;
 
 pub trait SceneSink {
-    fn serialize(&self, scene: &Scene) -> Result<()>;
+    fn serialize(&self, scene: &Scene, output_prefix: &Path) -> Result<()>;
 }
 
 #[derive(Debug)]

@@ -58,7 +58,7 @@ impl SceneEffect for SubstanceMapper {
 
             for (effect_idx, effect) in self.after_effects.iter().enumerate() {
                 let prefix = format!("{}-{}-{}-effect-{}", base_filename, entity_idx, scene.entities[entity_idx].name, effect_idx);
-                base_output_prefix.set_file_name(prefix);
+                base_output_prefix.push(prefix);
 
                 if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &substance_tex, &base_output_prefix) {
                     let new_material_idx = scene.materials.len();
@@ -66,12 +66,9 @@ impl SceneEffect for SubstanceMapper {
                     scene.entities[entity_idx].material_idx = new_material_idx;
                 }
 
-                base_output_prefix.set_file_name(&base_filename);
+                base_output_prefix.pop();
             }
         }
-    }
-
-    fn perform_after_simulation(&self, _scene: &mut Scene, _surf: &Surface) {
     }
 }
 

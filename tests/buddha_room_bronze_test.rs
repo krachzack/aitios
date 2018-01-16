@@ -12,15 +12,8 @@ use std::fs::create_dir;
 fn buddha_room_bronze_test() {
     let directory = common::prepare_test_directory("buddha_room_bronze_test");
 
-    let mut obj_file = directory.clone();
-    obj_file.push("buddha-scene-weathered");
-    obj_file.set_extension("obj");
-    let obj_file = obj_file.to_str().unwrap();
-
-    let mut mtl_file = directory.clone();
-    mtl_file.push("buddha-scene-weathered");
-    mtl_file.set_extension("mtl");
-    let mtl_file = mtl_file.to_str().unwrap();
+    let obj_file = "buddha-scene-weathered.obj";
+    let mtl_file = "buddha-scene-weathered.mtl";
 
     /*let mut density_map_output_directory = directory.clone();
     density_map_output_directory.push("substance-density-maps");

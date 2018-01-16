@@ -20,6 +20,7 @@ impl SubstanceMap {
 
     pub fn substance_idx(&self) -> usize { self.substance_idx }
 
+    #[allow(unused)]
     pub fn entity_idx(&self) -> usize { self.entity_idx }
 
     pub fn sample_for_image_coords(&self, image_x: usize, image_y: usize, image_width: usize, image_height: usize) -> f32 {

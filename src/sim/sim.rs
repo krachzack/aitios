@@ -94,12 +94,16 @@ impl Simulation {
 
         for iteration_idx in 0..self.iterations {
             info!("Iteration {} started...", iteration_idx);
+            self.output_path.push(format!("iteration-{}", (1+iteration_idx)));
+            fs::create_dir_all(&self.output_path).expect(&format!("Could not create iteration output directory {:?}", self.output_path));
+
             self.trace_particles();
-            self.perform_iteration_effects(iteration_idx as usize);
-            self.serialize_scene_to_sinks(iteration_idx as usize);
+            self.perform_iteration_effects();
+            self.serialize_scene_to_sinks();
+
+            self.output_path.pop();
         }
 
-        //self.perform_after_simulation_effects();
         self.dump_hit_map();
     }
 
@@ -230,24 +234,15 @@ impl Simulation {
         }
     }
 
-    fn perform_iteration_effects(&mut self, iteration_idx: usize) {
-        let mut iteration_output_prefix = self.output_path.clone();
-        iteration_output_prefix.push(format!("iteration-{}", iteration_idx));
-
+    fn perform_iteration_effects(&mut self) {
         for effect in &self.scene_effects {
-            effect.perform_after_iteration(&mut self.scene, &self.surface, &iteration_output_prefix);
+            effect.perform_after_iteration(&mut self.scene, &self.surface, &self.output_path);
         }
     }
 
-    fn perform_after_simulation_effects(&mut self) {
-        for effect in &self.scene_effects {
-            effect.perform_after_simulation(&mut self.scene, &self.surface);
-        }
-    }
-
-    fn serialize_scene_to_sinks(&self, iteration_idx: usize) {
+    fn serialize_scene_to_sinks(&self) {
         for sink in &self.scene_sinks {
-            sink.serialize(&self.scene).unwrap();
+            sink.serialize(&self.scene, &self.output_path).unwrap();
         }
     }
 

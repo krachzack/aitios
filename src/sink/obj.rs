@@ -4,7 +4,7 @@ use super::SceneSink;
 
 use ::geom::scene::Scene;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::Write;
 
@@ -35,10 +35,13 @@ impl ObjSink {
 }
 
 impl SceneSink for ObjSink {
-    fn serialize(&self, scene: &Scene) -> Result<()> {
-        let mut obj = File::create(&self.obj_path)?;
+    fn serialize(&self, scene: &Scene, output_prefix: &Path) -> Result<()> {
+        let mut output_path = PathBuf::from(output_prefix);
+        output_path.push(&self.obj_path);
 
-        info!("Writing OBJ output file {:?}...", self.obj_path);
+        info!("Writing OBJ output file {:?}...", output_path);
+
+        let mut obj = File::create(&output_path)?;
 
         // Write header
         obj.write("# aitios procedurally weathered OBJ file\n".as_bytes())?;
