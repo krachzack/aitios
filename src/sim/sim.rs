@@ -44,6 +44,8 @@ pub struct Simulation {
     /// The general form is:
     /// surfel.substance[n] = surfel.substance[n] + ton_to_surface_interaction_weight * ton.substance[n]
     ton_to_surface_interaction_weight: f32,
+    /// Base path for synthesized output files
+    output_path: PathBuf,
     /// If set, holds the path where to write an obj with the subset of the surfels that were hit
     hit_map_path: Option<PathBuf>,
 }
@@ -59,6 +61,7 @@ impl Simulation {
         sources: Vec<TonSource>,
         scene_effects: Vec<Box<SceneEffect>>,
         scene_sinks: Vec<Box<SceneSink>>,
+        output_path: PathBuf,
         hit_map_path: Option<PathBuf>) -> Simulation
     {
         Simulation {
@@ -69,6 +72,7 @@ impl Simulation {
             scene_effects,
             scene_sinks,
             ton_to_surface_interaction_weight,
+            output_path,
             hit_map_path
         }
     }
@@ -83,19 +87,19 @@ impl Simulation {
     /// modified scene and materials.
     pub fn run(&mut self) {
         info!(
-            "Running simulation with {} iteraions of {} particles each... ",
+            "Running simulation with {} iterations of {} particles each... ",
             self.iterations,
             self.sources.iter().map(|s| s.emission_count()).sum::<u32>()
         );
 
-        for _ in 0..self.iterations {
+        for iteration_idx in 0..self.iterations {
+            info!("Iteration {} started...", iteration_idx);
             self.trace_particles();
-            self.perform_iteration_effects();
+            self.perform_iteration_effects(iteration_idx as usize);
+            self.serialize_scene_to_sinks(iteration_idx as usize);
         }
 
-        self.perform_after_simulation_effects();
-
-        self.serialize_scene_to_sinks();
+        //self.perform_after_simulation_effects();
         self.dump_hit_map();
     }
 
@@ -226,9 +230,12 @@ impl Simulation {
         }
     }
 
-    fn perform_iteration_effects(&mut self) {
+    fn perform_iteration_effects(&mut self, iteration_idx: usize) {
+        let mut iteration_output_prefix = self.output_path.clone();
+        iteration_output_prefix.push(format!("iteration-{}", iteration_idx));
+
         for effect in &self.scene_effects {
-            effect.perform_after_iteration(&mut self.scene, &self.surface);
+            effect.perform_after_iteration(&mut self.scene, &self.surface, &iteration_output_prefix);
         }
     }
 
@@ -238,7 +245,7 @@ impl Simulation {
         }
     }
 
-    fn serialize_scene_to_sinks(&self) {
+    fn serialize_scene_to_sinks(&self, iteration_idx: usize) {
         for sink in &self.scene_sinks {
             sink.serialize(&self.scene).unwrap();
         }

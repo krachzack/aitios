@@ -12,21 +12,19 @@ use ::tobj::Material;
 use ::image;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::fs::File;
 
 pub struct SubstanceColorEffect {
     zero_color: Vector4<f32>,
     one_color: Vector4<f32>,
-    unused_color: Vector4<f32>,
-    output_directory: PathBuf
+    unused_color: Vector4<f32>
 }
 
 impl SubstanceColorEffect {
-    pub fn new(zero_color: Vector4<f32>, one_color: Vector4<f32>, unused_color: Vector4<f32>, output_directory: &str) -> SubstanceColorEffect {
+    pub fn new(zero_color: Vector4<f32>, one_color: Vector4<f32>, unused_color: Vector4<f32>) -> SubstanceColorEffect {
         SubstanceColorEffect {
-            zero_color, one_color, unused_color,
-            output_directory: PathBuf::from(output_directory)
+            zero_color, one_color, unused_color
         }
     }
 
@@ -48,7 +46,7 @@ impl SubstanceColorEffect {
 }
 
 impl SubstanceMapMaterialEffect for SubstanceColorEffect {
-    fn perform(&self, _entity: &Entity, concentrations: &SubstanceMap) -> Option<Material> {
+    fn perform(&self, _entity: &Entity, concentrations: &SubstanceMap, output_file_prefix: &Path) -> Option<Material> {
         let width = concentrations.width();
         let height = concentrations.height();
 
@@ -70,10 +68,10 @@ impl SubstanceMapMaterialEffect for SubstanceColorEffect {
             }
         );
 
-        let material_name = format!("density-map-entity-{}-substance-{}", concentrations.entity_idx(), concentrations.substance_idx());
+        let material_name = format!("{}-density-map-substance-{}", output_file_prefix.file_name().unwrap().to_str().unwrap(), concentrations.substance_idx());
 
-        let mut substance_map_path = self.output_directory.clone();
-        substance_map_path.push(&material_name);
+        let mut substance_map_path = PathBuf::from(output_file_prefix);
+        substance_map_path.set_file_name(&material_name);
         substance_map_path.set_extension("png");
 
         let target_filename_relative = String::from(substance_map_path.file_name().unwrap().to_str().unwrap());

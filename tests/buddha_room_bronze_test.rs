@@ -22,13 +22,13 @@ fn buddha_room_bronze_test() {
     mtl_file.set_extension("mtl");
     let mtl_file = mtl_file.to_str().unwrap();
 
-    let mut density_map_output_directory = directory.clone();
+    /*let mut density_map_output_directory = directory.clone();
     density_map_output_directory.push("substance-density-maps");
     create_dir(&density_map_output_directory).unwrap();
 
     let density_map_output_directory = density_map_output_directory.to_str().unwrap();
 
-    let blent_map_output_directory = directory.to_str().unwrap();
+    let blent_map_output_directory = directory.to_str().unwrap();*/
 
     let input_path = "test-scenes/buddha-scene";
     let model_obj_path = format!("{}/buddha-scene.obj", input_path);
@@ -44,7 +44,7 @@ fn buddha_room_bronze_test() {
     // TODO decouple simulation from effects
 
     aitios::SimulationBuilder::new()
-        .ton_to_surface_interaction_weight(0.15)
+        .ton_to_surface_interaction_weight(0.05)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
@@ -57,10 +57,10 @@ fn buddha_room_bronze_test() {
         )
         .add_environment_source(|s| {
             s.p_straight(1.0)
-                .interaction_radius(0.05)
+                .interaction_radius(0.07)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
-                .emission_count(150000)
+                .emission_count(50000)
         })
         /*.add_source(|s| {
             s.p_straight(1.0)
@@ -72,10 +72,10 @@ fn buddha_room_bronze_test() {
         .substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
-            2048,
-            2048
+            512,
+            512
         )
-        .add_effect_density_map(density_map_output_directory)
+        .add_effect_density_map()
         /*.add_effect_blend(
             0,
             "stone",
@@ -88,8 +88,9 @@ fn buddha_room_bronze_test() {
         //.add_effect_density_map(1024, 1024, density_map_output_directory)
         //.add_effect_density_map(4096, 4096, density_map_output_directory)
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
+        .output_path(directory)
         .hit_map_path(hit_map_path)
-        .iterations(1)
+        .iterations(3)
         .build()
         .run();
 }

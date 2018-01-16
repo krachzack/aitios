@@ -15,6 +15,7 @@ use ::nearest_kdtree::distance::squared_euclidean;
 use std::f32;
 use std::f32::{NAN, EPSILON, NEG_INFINITY};
 use std::time::Instant;
+use std::path::{Path, PathBuf};
 
 pub struct SubstanceMapper {
     substance_idx: usize,
@@ -44,9 +45,10 @@ pub enum Sampling {
 }
 
 impl SceneEffect for SubstanceMapper {
-    fn perform_after_iteration(&self, _scene: &mut Scene, _surf: &Surface) { }
+    fn perform_after_iteration(&self, scene: &mut Scene, surf: &Surface, base_output_prefix: &Path) {
+        let mut base_output_prefix = PathBuf::from(base_output_prefix);
+        let base_filename = String::from(base_output_prefix.file_name().unwrap().to_str().unwrap());
 
-    fn perform_after_simulation(&self, scene: &mut Scene, surf: &Surface) {
         let start = Instant::now();
 
         for entity_idx in 0..scene.entities.len() {
@@ -54,14 +56,22 @@ impl SceneEffect for SubstanceMapper {
             let substance_tex = self.gather(scene, surf, entity_idx);
             info!("Ok, took {}s", start.elapsed().as_secs());
 
-            for effect in &self.after_effects {
-                if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &substance_tex) {
+            for (effect_idx, effect) in self.after_effects.iter().enumerate() {
+                let prefix = format!("{}-{}-{}-effect-{}", base_filename, entity_idx, scene.entities[entity_idx].name, effect_idx);
+                base_output_prefix.set_file_name(prefix);
+
+                if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &substance_tex, &base_output_prefix) {
                     let new_material_idx = scene.materials.len();
                     scene.materials.push(new_material);
                     scene.entities[entity_idx].material_idx = new_material_idx;
                 }
+
+                base_output_prefix.set_file_name(&base_filename);
             }
         }
+    }
+
+    fn perform_after_simulation(&self, _scene: &mut Scene, _surf: &Surface) {
     }
 }
 
@@ -90,6 +100,7 @@ impl SubstanceMapper {
         )
     }
 
+    #[allow(unused_variables)]
     fn gather_space_radius(&self, ent: &Entity, surf: &Surface, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 

@@ -69,7 +69,8 @@ pub struct SimulationBuilder {
     substance_idx: usize,
     substance_map_width: usize,
     substance_map_height: usize,
-    substance_map_sampling: Sampling
+    substance_map_sampling: Sampling,
+    output_path: Option<PathBuf>
 }
 
 impl SimulationBuilder {
@@ -88,7 +89,8 @@ impl SimulationBuilder {
             substance_idx: 0,
             substance_map_width: 4096,
             substance_map_height: 4096,
-            substance_map_sampling: Sampling::SpaceRadius(0.1)
+            substance_map_sampling: Sampling::SpaceRadius(0.1),
+            output_path: None
         }
     }
 
@@ -128,6 +130,11 @@ impl SimulationBuilder {
                 Err(_) => info!("Failed")
             }
         }
+    }
+
+    pub fn output_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
+        self.output_path = Some(path.into());
+        self
     }
 
     pub fn hit_map_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
@@ -200,14 +207,13 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn add_effect_density_map(mut self, output_directory: &str) -> SimulationBuilder {
+    pub fn add_effect_density_map(mut self) -> SimulationBuilder {
         self.effects.push(
             Box::new(
                 SubstanceColorEffect::new(
                     Vector4::new((255.0 / 255.0), (255.0 / 255.0), (255.0 / 255.0), 1.0), //Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
                     Vector4::new((0.0 / 255.0), (0.0 / 255.0), (0.0 / 255.0), 1.0), //Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
                     Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
-                    output_directory
                 )
             )
         );
@@ -239,6 +245,7 @@ impl SimulationBuilder {
             self.sources,
             vec![ Box::new(substance_mapper) ],
             self.scene_sinks,
+            self.output_path.unwrap(),
             self.hit_map_path
         )
     }
