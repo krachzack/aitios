@@ -158,6 +158,46 @@ impl<T> Octree<T>
     }
 }
 
+impl<T> Octree<T>
+    where T : Spatial + IntersectRay
+{
+    pub fn ray_intersection_target_and_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<(&T, f32)> {
+
+        let mut t_min = None;
+
+        if !self.bounds.intersects_ray(ray_origin, ray_direction) {
+            return None;
+        }
+
+        for data in &self.data {
+            if let Some(t) = data.ray_intersection_parameter(ray_origin, ray_direction) {
+                if let Some((min_data, min_param)) = t_min.take() {
+                    t_min = Some(if t < min_param {
+                        (data, t)
+                    } else {
+                        (min_data, min_param)
+                    });
+                } else {
+                    t_min = Some((data, t));
+                }
+            }
+        }
+
+        for child in &self.children {
+            if let &Some(ref child) = child {
+                if let Some((data, t)) = child.ray_intersection_target_and_parameter(ray_origin, ray_direction) {
+                    t_min = Some(match t_min {
+                        Some((min_data, t_min)) => if t < t_min { (data, t) } else { (min_data, t_min) },
+                        None => (data, t)
+                    });
+                }
+            }
+        }
+
+        t_min
+    }
+}
+
 impl<T> FromIterator<T> for Octree<T>
     where T : Spatial
 {

@@ -60,20 +60,20 @@ fn buddha_room_bronze_test() {
                 .interaction_radius(0.05)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
-                .emission_count(100000)
+                .emission_count(150000)
         })
-        .add_source(|s| {
+        /*.add_source(|s| {
             s.p_straight(1.0)
                 .interaction_radius(0.05)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 15.0, 0.0)
                 .emission_count(100000)
-        })
+        })*/
         .substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
-            1024,
-            1024
+            2048,
+            2048
         )
         .add_effect_density_map(density_map_output_directory)
         /*.add_effect_blend(

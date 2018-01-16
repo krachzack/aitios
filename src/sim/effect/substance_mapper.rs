@@ -14,7 +14,6 @@ use ::nearest_kdtree::distance::squared_euclidean;
 
 use std::f32;
 use std::f32::{NAN, EPSILON, NEG_INFINITY};
-use std::f32::consts::PI;
 use std::time::Instant;
 
 pub struct SubstanceMapper {
@@ -168,7 +167,7 @@ impl SubstanceMapper {
                     // This is enspired by photon mapping, see: https://graphics.stanford.edu/courses/cs348b-00/course8.pdf
 
                     // > 1, characterizes the filter
-                    let k = 1.9;
+                    let k = 2.7;
 
                     let concentration = surfels.iter()
                         .map(|&(dist, surfel)| (1.0 - (dist / (k * sample_radius))) * surfel.substances[self.substance_idx])

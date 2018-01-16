@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
 use ::geom::scene::{Scene, Triangle};
 use ::geom::octree::Octree;
-use ::geom::intersect::IntersectRay;
 
 use ::cgmath::Vector3;
 use ::cgmath::prelude::*;
@@ -116,34 +115,11 @@ impl Simulation {
             .flat_map(|src| src.emit())
             .for_each(move |(mut ton, ray_origin, ray_direction)| Self::trace_straight(surf, &octree, &mut ton, ray_origin, ray_direction, ton_to_surface_interaction_weight));
         info!("Ok, took {}s", before.elapsed().as_secs());
-
-        /*
-        info!("Starting ton tracing... ");
-        let before = Instant::now();
-        let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
-        for &(ref ton, intersection_point) in initial_hits.iter() {
-            let interacting_surfel_idxs = self.surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
-
-            for surfel_idx in interacting_surfel_idxs {
-                let interacting_surfel = &mut self.surface.samples[surfel_idx];
-
-                assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
-                let material_transports = interacting_surfel.substances
-                    .iter_mut()
-                    .zip(
-                        ton.substances.iter()
-                    );
-
-                for (ref mut surfel_material, &ton_material) in material_transports {
-                    **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
-                }
-            }
-        }
-        info!("Ok, {}s", before.elapsed().as_secs());*/
     }
 
     fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
-        if let Some(intersection_point) = octree.ray_intersection_point(origin, direction) {
+        if let Some((_hit_tri_, param)) = octree.ray_intersection_target_and_parameter(origin, direction) {
+            let intersection_point = origin + direction * param;
             let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 
             if interacting_surfel_idxs.is_empty() {
@@ -158,12 +134,23 @@ impl Simulation {
                 Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
             }*/
 
-            // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
-            Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
-
             // TODO trace the particle further
             let mut rng = rand::thread_rng();
             let mut random : f32 = rng.gen();
+
+            if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+                // If not settled yet, pick up some material
+
+                // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
+                Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
+
+                for surfel_idx in &interacting_surfel_idxs {
+                    let interacting_surfel = &mut surface.samples[*surfel_idx];
+
+                    // FIXME should only settled tons transport material? The fur simulation implements it that way
+                    Self::transport_material_to_ton(interacting_surfel, ton, ton_to_surface_interaction_weight);
+                }
+            }
 
             if random < ton.p_straight {
                 let random_on_unit_sphere = Vector3::new(
@@ -186,13 +173,13 @@ impl Simulation {
                     let interacting_surfel = &mut surface.samples[*surfel_idx];
 
                     // FIXME should only settled tons transport material? The fur simulation implements it that way
-                    Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
+                    Self::transport_material_to_surf(ton, interacting_surfel, ton_to_surface_interaction_weight);
                 }
             }
         }
     }
 
-    fn transport_material(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
+    fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
         assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
         let material_transports = interacting_surfel.substances
             .iter_mut()
@@ -202,6 +189,22 @@ impl Simulation {
 
         for (ref mut surfel_material, &ton_material) in material_transports {
             **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
+        }
+    }
+
+    fn transport_material_to_ton(interacting_surfel: &mut Surfel, ton: &mut Ton, surface_to_ton_interaction_weight: f32) {
+        assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+        let material_transports = ton.substances
+            .iter_mut()
+            .zip(
+                interacting_surfel.substances.iter_mut()
+            );
+
+        for (ref mut ton_material, ref mut surfel_material) in material_transports {
+            let transport_amount = surface_to_ton_interaction_weight * **surfel_material;
+
+            **surfel_material -= transport_amount;
+            **ton_material += transport_amount;
         }
     }
 
