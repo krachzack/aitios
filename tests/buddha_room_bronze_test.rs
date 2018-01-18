@@ -5,8 +5,6 @@ extern crate chrono;
 
 mod common;
 
-use std::fs::create_dir;
-
 #[cfg_attr(not(feature = "expensive_tests"), ignore)]
 #[test]
 fn buddha_room_bronze_test() {
@@ -23,8 +21,8 @@ fn buddha_room_bronze_test() {
 
     let blent_map_output_directory = directory.to_str().unwrap();*/
 
-    let input_path = "test-scenes/buddha-scene";
-    let model_obj_path = format!("{}/buddha-scene.obj", input_path);
+    let input_path = "test-scenes/buddha-scene-iron-concrete";
+    let model_obj_path = format!("{}/buddha-scene-iron-concrete.obj", input_path);
 
     let mut hit_map_path = directory.clone();
     hit_map_path.push("interacted_surfels");
@@ -42,7 +40,7 @@ fn buddha_room_bronze_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.03)
+                s.min_sample_distance(0.01)
                     // About half of incident gammatons settle
                     .delta_straight(0.5)
                     .substances(&vec![0.0])
@@ -50,10 +48,10 @@ fn buddha_room_bronze_test() {
         )
         .add_environment_source(|s| {
             s.p_straight(1.0)
-                .interaction_radius(0.07)
+                .interaction_radius(0.03)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
-                .emission_count(50000)
+                .emission_count(100000)
         })
         /*.add_source(|s| {
             s.p_straight(1.0)
@@ -65,10 +63,15 @@ fn buddha_room_bronze_test() {
         .substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
-            512,
-            512
+            2048,
+            2048
         )
         .add_effect_density_map()
+        .add_effect_blend(
+            vec![String::from("bronze"), String::from("stone")],
+            "test-scenes/buddha-scene-iron-concrete/",
+            "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
+        )
         /*.add_effect_blend(
             0,
             "stone",

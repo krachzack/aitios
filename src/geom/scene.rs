@@ -28,6 +28,8 @@ pub struct Entity {
     pub name: String,
     pub entity_idx: usize,
     pub material_idx: usize,
+    /** Material index when the entity was first loaded */
+    pub original_material_idx: usize,
     pub mesh: Mesh
 }
 
@@ -105,10 +107,14 @@ impl Scene {
             entities: models.into_iter()
                 .enumerate()
                 .map(move |(idx, m)| {
+                    // All meshes need a material, otherwise panic
+                    let material_idx = m.mesh.material_id.unwrap();
+
                     Entity {
                         name: m.name,
                         entity_idx: idx,
-                        material_idx: m.mesh.material_id.unwrap(), // All meshes need a material, otherwise panic
+                        material_idx,
+                        original_material_idx: material_idx,
                         mesh: Mesh {
                             indices: m.mesh.indices,
                             positions: m.mesh.positions,

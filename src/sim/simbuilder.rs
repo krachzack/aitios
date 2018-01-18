@@ -18,7 +18,7 @@ use ::cgmath::prelude::*;
 
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect};
+use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect, Blend};
 
 /// Builds a simulation according to provided parameters and closures.
 ///
@@ -215,6 +215,18 @@ impl SimulationBuilder {
                     Vector4::new((0.0 / 255.0), (0.0 / 255.0), (0.0 / 255.0), 1.0), //Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
                     Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
                 )
+            )
+        );
+
+        self
+    }
+
+    pub fn add_effect_blend<P>(mut self, target_material_names: Vec<String>, texture_base_path: P, blend_target_image: P) -> SimulationBuilder
+        where P : Into<PathBuf>
+    {
+        self.effects.push(
+            Box::new(
+                Blend::new(target_material_names, texture_base_path, &blend_target_image.into())
             )
         );
 

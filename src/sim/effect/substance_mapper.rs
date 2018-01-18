@@ -60,7 +60,7 @@ impl SceneEffect for SubstanceMapper {
                 let prefix = format!("{}-{}-{}-effect-{}", base_filename, entity_idx, scene.entities[entity_idx].name, effect_idx);
                 base_output_prefix.push(prefix);
 
-                if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &substance_tex, &base_output_prefix) {
+                if let Some(new_material) = effect.perform(&scene.entities[entity_idx], &scene.materials[scene.entities[entity_idx].original_material_idx], &substance_tex, &base_output_prefix) {
                     let new_material_idx = scene.materials.len();
                     scene.materials.push(new_material);
                     scene.entities[entity_idx].material_idx = new_material_idx;

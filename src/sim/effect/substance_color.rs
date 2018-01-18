@@ -46,7 +46,7 @@ impl SubstanceColorEffect {
 }
 
 impl SubstanceMapMaterialEffect for SubstanceColorEffect {
-    fn perform(&self, _entity: &Entity, concentrations: &SubstanceMap, output_file_prefix: &Path) -> Option<Material> {
+    fn perform(&self, _entity: &Entity, _original_material: &Material, concentrations: &SubstanceMap, output_file_prefix: &Path) -> Option<Material> {
         let width = concentrations.width();
         let height = concentrations.height();
 

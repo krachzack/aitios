@@ -93,7 +93,7 @@ impl Simulation {
         );
 
         for iteration_idx in 0..self.iterations {
-            info!("Iteration {} started...", iteration_idx);
+            info!("Iteration {} started...", (1+iteration_idx));
             self.output_path.push(format!("iteration-{}", (1+iteration_idx)));
             fs::create_dir_all(&self.output_path).expect(&format!("Could not create iteration output directory {:?}", self.output_path));
 
