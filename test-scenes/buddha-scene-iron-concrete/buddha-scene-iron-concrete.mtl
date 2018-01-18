@@ -1,0 +1,25 @@
+# Blender MTL File: 'buddha-scene-iron-concrete.blend'
+# Material Count: 2
+
+newmtl bronze
+Ns 31.372549
+Ka 0.000000 0.000000 0.000000
+Kd 0.525500 0.431400 0.031400
+Ks 0.350000 0.350000 0.350000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd streakedmetal-albedo.png
+map_Ks streakedmetal-metalness.psd
+
+newmtl stone
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd Concrete03_COL_VAR1_1K.jpg
