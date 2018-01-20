@@ -49,9 +49,15 @@ pub struct Vertex {
     pub entity_idx: usize
 }
 
-impl vtx::Vertex for Vertex {
+impl vtx::Position for Vertex {
     fn position(&self) -> Vector3<f32> {
         self.position
+    }
+}
+
+impl vtx::Normal for Vertex {
+    fn normal(&self) -> Vector3<f32> {
+        self.normal
     }
 }
 

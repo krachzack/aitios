@@ -3,7 +3,7 @@ use super::vtx::SparseVertex;
 use super::bins::TriangleBins;
 
 use ::geom::tri::Triangle;
-use ::geom::vtx::Vertex;
+use ::geom::vtx::Position;
 
 use ::kdtree::kdtree::Kdtree;
 
@@ -23,7 +23,7 @@ impl Darts
 {
     pub fn new<'a, I, V>(triangles: I, min_point_distance: f32) -> Darts
         where I: IntoIterator<Item = &'a Triangle<V>>,
-            V : Vertex + 'a
+            V : Position + 'a
     {
         trace!("Binning triangles for sampling...");
         let active_triangles = TriangleBins::new(
@@ -126,7 +126,7 @@ impl Iterator for Darts {
 
 fn as_sparse<'a, I, V>(triangles: I) -> Vec<Triangle<SparseVertex>>
     where I: IntoIterator<Item = &'a Triangle<V>>,
-            V : Vertex + 'a
+            V : Position + 'a
 {
     triangles.into_iter()
         .enumerate()

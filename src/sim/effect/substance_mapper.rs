@@ -5,7 +5,7 @@ use super::substance_map_material::SubstanceMapMaterialEffect;
 use ::geom::scene::{Scene, Entity};
 use ::geom::surf::Surface;
 use ::geom::tri::Triangle;
-use ::geom::vtx::Vertex;
+use ::geom::vtx::Position;
 
 use ::cgmath::{Vector2, Vector3};
 
@@ -303,7 +303,7 @@ impl SubstanceMapper {
     }
 }
 
-impl Vertex for (Vector3<f32>, Vector2<f32>) {
+impl Position for (Vector3<f32>, Vector2<f32>) {
     // Triangles in UV space
     fn position(&self) -> Vector3<f32> {
         Vector3::new(self.1.x, self.1.y, 0.0)

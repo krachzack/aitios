@@ -1,4 +1,4 @@
-use ::geom::vtx::Vertex;
+use ::geom::vtx::Position;
 
 use ::cgmath::Vector3;
 
@@ -21,7 +21,7 @@ impl PartialEq for SparseVertex {
     }
 }
 
-impl Vertex for SparseVertex {
+impl Position for SparseVertex {
     fn position(&self) -> Vector3<f32> {
         Vector3::new(self.position[0] as f32, self.position[1] as f32, self.position[2] as f32)
     }

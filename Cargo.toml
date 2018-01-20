@@ -9,7 +9,7 @@ expensive_tests = []
 
 [dependencies]
 log = "0.3.8"
-cgmath = "0.15.0"
+cgmath = "0.16.0"
 tobj = "0.1.6"
 rand = "0.3.18"
 image = "0.18.0"

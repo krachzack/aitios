@@ -1,6 +1,6 @@
-///! Contains the core particle tracing logic and invokes facilties
-/// to emit gammatons, perform effects on the scene and to serialize
-/// the scene in the end.
+//! Contains the core particle tracing logic and invokes facilties
+//! to emit gammatons, perform effects on the scene and to serialize
+//! the scene in the end.
 
 use std::fs;
 use std::time::Instant;
@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
 use ::geom::scene::{Scene, Triangle};
 use ::geom::octree::Octree;
+use ::geom::vtx::Position;
 
 use ::cgmath::Vector3;
 use ::cgmath::prelude::*;
@@ -126,7 +127,7 @@ impl Simulation {
     }
 
     fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
-        if let Some((_hit_tri_, param)) = octree.ray_intersection_target_and_parameter(origin, direction) {
+        if let Some((hit_tri, param)) = octree.ray_intersection_target_and_parameter(origin, direction) {
             let intersection_point = origin + direction * param;
             let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 
@@ -175,7 +176,7 @@ impl Simulation {
             } else if random < (ton.p_straight + ton.p_parabolic) {
                 // TODO parabolic
             } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
-                // TODO flow
+                Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
             } else {
                 for surfel_idx in &interacting_surfel_idxs {
                     let interacting_surfel = &mut surface.samples[*surfel_idx];
@@ -185,6 +186,40 @@ impl Simulation {
                 }
             }
         }
+    }
+
+    fn trace_flow(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+        /*let world_to_tangent = hit_tri.world_to_tangent_matrix();
+        let tangent_to_world = world_to_tangent.invert().expect("Expected world to tangent matrix to be invertible");
+
+        let tangent_direction = world_to_tangent * incoming_direction;
+        let tangent_direction = tangent_direction.truncate().extend(0.0).normalize(); // FIXME After truncate it might be a zero vector
+
+        let flow_direction_tangent_space = tangent_direction.truncate().extend(-3.0).normalize();
+        let flow_direction = tangent_to_world * flow_direction_tangent_space;
+
+        let flow_origin = intersection_point + hit_tri.normal() * 0.001;
+
+        Self::trace_straight(surface, octree, ton, flow_origin, flow_direction, ton_to_surface_interaction_weight);*/
+
+        let normal = hit_tri.normal();
+
+        let origin_offset_mag = 0.002; // both affect the distance of a flow event
+        let downward_pull_mag = 0.01;
+
+        let new_origin = intersection_point + origin_offset_mag * normal;
+        let flow_direction = {
+            let dir = hit_tri.project_onto_tangential_plane(incoming_direction);
+            if dir.is_zero() {
+                warn!("Incoming direction for flow is orthogonal, using A edge as flow direction");
+                (hit_tri.vertices[2].position() - hit_tri.vertices[1].position()).normalize()
+            } else {
+                dir
+            }
+        };
+        let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
+
+        Self::trace_straight(surface, octree, ton, new_origin, new_direction, ton_to_surface_interaction_weight);
     }
 
     fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
@@ -228,7 +263,7 @@ impl Simulation {
         }
 
         // NOTE the original flow deterioration is max(kf + max(kp - deltaP, 0) - deltaF, 0)
-        ton.p_flow -= surfel.delta_parabolic;
+        ton.p_flow -= surfel.delta_flow;
         if ton.p_flow < 0.0 {
             ton.p_flow = 0.0;
         }

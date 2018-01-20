@@ -2,10 +2,10 @@
 //! Contains functionality for triangles.
 //!
 
-use ::cgmath::Vector3;
+use ::cgmath::{Vector3, Matrix3};
 use ::cgmath::prelude::*;
 
-use super::vtx::Vertex;
+use super::vtx::{Position, Normal};
 use super::spatial::Spatial;
 use super::aabb::Aabb;
 use super::intersect::IntersectRay;
@@ -21,13 +21,13 @@ use ::rand;
 /// in 3D space.
 #[derive(Debug, Copy, Clone)]
 pub struct Triangle<V>
-    where V : Vertex
+    where V : Position
 {
     pub vertices: [V; 3]
 }
 
 impl<V> Spatial for Triangle<V>
-    where V : Vertex
+    where V : Position
 {
     fn bounds(&self) -> Aabb {
         Aabb::from_points(
@@ -38,7 +38,7 @@ impl<V> Spatial for Triangle<V>
 }
 
 impl<V> Triangle<V>
-    where V : Vertex
+    where V : Position
 {
     pub fn new(vertex0: V, vertex1: V, vertex2: V) -> Triangle<V> {
         Triangle {
@@ -198,10 +198,97 @@ impl<V> Triangle<V>
         self.vertices.iter()
             .all(|v| center.distance2(v.position()) < radius_sqr)
     }
+
+    /// Calculates a tangent space based on vertex positions and returns it as three
+    /// vectors that form an orthonormal basis. The first vector will be a tangent,
+    /// the second a binormal and the third the face normal.
+    ///
+    /// Note that there are infinite possible tangent spaces. The resulting tangent
+    /// is parallel to the edge C, that is from vertex 0 to vertex 1. The
+    /// tangent space is not guaranteed to be aligned with texture space, which is
+    /// normally a common way to align it.
+    pub fn tangent_space(&self) -> (Vector3<f32>, Vector3<f32>, Vector3<f32>) {
+        let (a, b, c) = (
+            self.vertices[0].position(),
+            self.vertices[1].position(),
+            self.vertices[2].position()
+        );
+
+        let a_to_b = b - a;
+        let a_to_c = c - a;
+
+        let scaled_normal = a_to_b.cross(a_to_c);
+
+        // If two points are colinear, result is always zero vector: v.cross(v) = 0, v.cross(Vector3::zero()) = 0
+        assert!(!scaled_normal.is_zero(), "Face normal is undefined for triangle with zero area: [{:?}, {:?}, {:?}]", a, b, c);
+
+        let normal = scaled_normal.normalize();
+        let tangent = a_to_b.normalize();
+        let binormal = (normal.cross(tangent)).normalize();
+
+        (tangent, binormal, normal)
+    }
+
+    pub fn tangent(&self) -> Vector3<f32> {
+        let (tangent, _, _) = self.tangent_space();
+        tangent
+    }
+
+    pub fn binormal(&self) -> Vector3<f32> {
+        let (_, binormal, _) = self.tangent_space();
+        binormal
+    }
+
+    /// Calculates a face normal for the triangle based on the vertex positions
+    /// and the cross product.
+    ///
+    /// Panics for empty triangles, since the resulting cross product is always zero.
+    pub fn normal(&self) -> Vector3<f32> {
+        let (_, _, normal) = self.tangent_space();
+        normal
+    }
+
+    pub fn world_to_tangent_matrix(&self) -> Matrix3<f32> {
+        let (tangent, binormal, normal) = self.tangent_space();
+        Matrix3::from_cols(tangent, binormal, normal).transpose()
+    }
+
+    /// Transforms the given direction vector into tangent space, setting the height component to zero and then
+    /// transforming back into world space. The resulting direction should be parallel to the tangential plane
+    /// in world space. If the given direction happens to be parallel to the normal, a zero vector is returned.
+    pub fn project_onto_tangential_plane(&self, incoming_direction_world: Vector3<f32>) -> Vector3<f32> {
+        let world_to_tangent = self.world_to_tangent_matrix();
+        let tangent_to_world = world_to_tangent.invert()
+            .expect("Expected tangent space matrix to be invertible");
+
+        let tangent_space_direction = world_to_tangent * incoming_direction_world;
+        let tangent_space_direction_flat = tangent_space_direction
+            .truncate() // drop Z
+            .extend(0.0); // and set to zero
+
+        let scaled_projected = tangent_to_world * tangent_space_direction_flat;
+
+        if scaled_projected.is_zero() {
+            scaled_projected
+        } else {
+            scaled_projected.normalize()
+        }
+    }
 }
 
 impl<V> Triangle<V>
-    where V : Vertex + Clone + Mul<f32, Output = V> + Add<V, Output = V>
+    where V : Position + Normal
+{
+    /// Synthesizes a face normal by averaging the normals of the vertices
+    pub fn face_normal_by_vertices(&self) -> Vector3<f32> {
+        (1.0 / 3.0) * self.vertices.iter()
+            .map(|v| v.normal())
+            .fold(Vector3::zero(), |acc, n| acc + n)
+    }
+}
+
+impl<V> Triangle<V>
+    where V : Position + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
     pub fn sample_position(&self) -> Vector3<f32> {
         let positions = self.vertices.iter().map(|v| v.position());
@@ -274,7 +361,7 @@ impl<V> Triangle<V>
 }
 
 impl<V> IntersectRay for Triangle<V>
-    where V : Vertex
+    where V : Position
 {
     fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
         let vertex0 = self.vertices[0].position();
@@ -337,7 +424,7 @@ mod test {
 
     struct Vtx(Vector3<f32>);
 
-    impl Vertex for Vtx {
+    impl Position for Vtx {
         fn position(&self) -> Vector3<f32> {
             self.0
         }
@@ -448,5 +535,97 @@ mod test {
         let source_tri_area = tri.area();
         assert_eq!(source_tri_area, 2.0); // (width * height) / 2, given width = 2, height = 2
         assert_eq!(subdivided_tris_area_sum, source_tri_area);
+    }
+
+    #[test]
+    fn test_calculate_face_normal_from_positions() {
+        // ccw on X/Z-Plane, normal should point in positive Y direction
+        let tri = Triangle::new(
+            Vector3::new(-1.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 1.0),
+            Vector3::new(0.0, 0.0, -1.0)
+        );
+
+        let (tangent, binormal, normal) = tri.tangent_space();
+        assert_eq!(Vector3::new(0.0, 1.0, 0.0), normal);
+        assert_eq!(Vector3::new(1.0, 0.0, 0.0), tangent);
+        assert_eq!(Vector3::new(0.0, 0.0, -1.0), binormal);
+
+        // cw, normal should point down
+        let tri = Triangle::new(
+            Vector3::new(1.0, 0.0, 1.0),
+            Vector3::new(-1.0, 0.0, 1.0),
+            Vector3::new(0.0, 0.0, -1.0)
+        );
+
+        assert_eq!(Vector3::new(0.0, -1.0, 0.0), tri.normal());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_zero_area_triangle_normal_calculation_panics() {
+        let tri = Triangle::new(
+            Vector3::new(-1.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 1.0)
+        );
+
+        tri.normal();
+    }
+
+    #[test]
+    fn test_project_direction_on_tangential_plane_on_floor() {
+        // triangle flat on the floor with normal facing toward y
+        // projecting should just drop the Z value in this case
+        let floor_tri = Triangle::new(
+            Vector3::new(-1.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 1.0),
+            Vector3::new(0.0, 0.0, -1.0)
+        );
+
+        let up_right_positive_z = Vector3::new(1.0, 1.0, 1.0).normalize();
+
+        assert_eq!(
+            Vector3::new(1.0, 0.0, 1.0).normalize(),
+            floor_tri.project_onto_tangential_plane(up_right_positive_z),
+            "Projecting a vector onto a triangle flat on the floor should yield the same vector with the z value dropped"
+        );
+    }
+
+    #[test]
+    fn test_project_direction_on_slope_tri() {
+        // Triangle with 45° upward slope in X direction
+        let slope_tri = Triangle::new(
+            Vector3::new(0.0, 0.0, 1.0),
+            Vector3::new(1.0, 1.0, 0.0),
+            Vector3::new(0.0, 0.0, -1.0)
+        );
+
+        let down = Vector3::new(0.0, -1.0, 0.0);
+        let projected = slope_tri.project_onto_tangential_plane(down);
+
+        assert_eq!(
+            Vector3::new(-1.0, -1.0, 0.0).normalize(),
+            projected
+        );
+    }
+
+    #[test]
+    fn test_project_direction_parallel_to_normal() {
+        // triangle flat on the floor with normal facing toward y
+        // projecting should just drop the Z value in this case
+        let floor_tri = Triangle::new(
+            Vector3::new(-1.0, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 1.0),
+            Vector3::new(0.0, 0.0, -1.0)
+        );
+
+        let up = Vector3::new(0.0, 1.0, 0.0).normalize();
+
+        assert_eq!(
+            Vector3::new(0.0, 0.0, 0.0),
+            floor_tri.project_onto_tangential_plane(up),
+            "Projecting a vector onto a triangle flat on the floor should yield the same vector with the z value dropped"
+        );
     }
 }

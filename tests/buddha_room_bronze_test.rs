@@ -35,20 +35,24 @@ fn buddha_room_bronze_test() {
     // TODO decouple simulation from effects
 
     aitios::SimulationBuilder::new()
-        .ton_to_surface_interaction_weight(0.05)
+        .ton_to_surface_interaction_weight(0.02)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.01)
+                s.min_sample_distance(0.02)
                     // About half of incident gammatons settle
-                    .delta_straight(0.5)
+                    .delta_straight(1.0)
+                    .delta_parabolic(1.0)
+                    .delta_flow(0.2) // up to 5 flow events per gammaton
                     .substances(&vec![0.0])
             }
         )
         .add_environment_source(|s| {
-            s.p_straight(1.0)
-                .interaction_radius(0.03)
+            s.p_straight(0.0)
+                .p_parabolic(0.0)
+                .p_flow(1.0)
+                .interaction_radius(0.05)
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
                 .emission_count(100000)
@@ -63,8 +67,8 @@ fn buddha_room_bronze_test() {
         .substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
-            2048,
-            2048
+            1024,
+            1024
         )
         .add_effect_density_map()
         .add_effect_blend(
@@ -86,7 +90,7 @@ fn buddha_room_bronze_test() {
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .output_path(directory)
         .hit_map_path(hit_map_path)
-        .iterations(3)
+        .iterations(2)
         .build()
         .run();
 }

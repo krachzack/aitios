@@ -5,7 +5,7 @@ mod darts;
 use self::darts::Darts;
 
 use ::geom::tri::Triangle;
-use ::geom::vtx::Vertex;
+use ::geom::vtx::Position;
 
 use ::cgmath::Vector3;
 
@@ -17,7 +17,7 @@ use std::time::Instant;
 /// To create a sample from a chosen surface position, the passed function is invoked.
 pub fn throw_darts<I, V, F, S>(triangles: I, minimum_sample_distance: f32, triangle_and_sample_pos_to_sample: F) -> Vec<S>
     where I : IntoIterator<Item = Triangle<V>>,
-        V : Vertex,
+        V : Position,
         F : Fn(&Triangle<V>, Vector3<f32>) -> S
 {
     let fat_triangles : Vec<_> = triangles.into_iter().collect();

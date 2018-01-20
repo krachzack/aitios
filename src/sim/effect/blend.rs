@@ -58,7 +58,10 @@ fn blend_by_substance_map(original: &DynamicImage, overlay: &DynamicImage, conce
             let overlay_y = (v * (overlay_h as f32)) as u32;
             let overlay_px = overlay.get_pixel(overlay_x, overlay_y);
 
-            let concentration = concentrations.sample_for_image_coords(x as usize, y as usize, width as usize, height as usize);
+            let concentration = {
+                let val = concentrations.sample_for_image_coords(x as usize, y as usize, width as usize, height as usize);
+                if val > 1.0 { 1.0 } else { val }
+            };
 
             original_px.map2(
                 &overlay_px,
