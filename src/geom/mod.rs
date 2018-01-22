@@ -4,6 +4,7 @@
 pub mod aabb;
 pub mod intersect;
 pub mod octree;
+pub mod raster;
 pub mod scene;
 pub mod spatial;
 pub mod surf;

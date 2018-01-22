@@ -5,7 +5,8 @@ use super::substance_map_material::SubstanceMapMaterialEffect;
 use ::geom::scene::{Scene, Entity};
 use ::geom::surf::Surface;
 use ::geom::tri::Triangle;
-use ::geom::vtx::Position;
+use ::geom::vtx::{Position, Texcoords};
+use ::geom::raster::Rasterize;
 
 use ::cgmath::{Vector2, Vector3};
 
@@ -13,7 +14,7 @@ use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
 
 use std::f32;
-use std::f32::{NAN, EPSILON, NEG_INFINITY};
+use std::f32::{NAN, NEG_INFINITY};
 use std::time::Instant;
 use std::path::{Path, PathBuf};
 
@@ -97,7 +98,100 @@ impl SubstanceMapper {
         )
     }
 
-    #[allow(unused_variables)]
+    fn gather_space_radius(&self, ent: &Entity, surf: &Surface, _radius_: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+        info!("Rendering concentrations...");
+
+        let mut concentrations = vec![NAN; tex_width * tex_height];
+
+        ent.triangles()
+            // Transform triangles into uv space scaled for target texture dimensions
+            .map(|t| Self::to_padded_uv_space(&t, tex_width, tex_height, 4))
+            .for_each(|t| t.rasterize(tex_width, tex_height, |x, y| {
+               let world_position = t.interpolate_at(Vector3::new(x as f32, y as f32, 0.0), |v| v.0);
+               let surfels = surf.nearest_n(world_position, 4);
+
+               let sample_radius = surfels.iter()
+                        .map(|&(dist, _)| dist)
+                        .fold(NEG_INFINITY, f32::max);
+
+                // This is inspired by photon mapping, see: https://graphics.stanford.edu/courses/cs348b-00/course8.pdf
+                // > 1, characterizes the filter
+                let k = 2.7;
+
+                let concentration = surfels.iter()
+                    .map(|&(dist, surfel)| (1.0 - (dist / (k * sample_radius))) * surfel.substances[self.substance_idx])
+                    .sum::<f32>() / (/*PI * sample_radius * sample_radius*/ surfels.len() as f32);
+
+                concentrations[y * tex_width + x] = concentration;
+            }));
+
+
+        info!("Done");
+
+        concentrations
+    }
+
+    fn to_padded_uv_space<V : Position + Texcoords>(triangle: &Triangle<V>, tex_width: usize, tex_height: usize, padding: usize) -> Triangle<(Vector3<f32>, Vector2<f32>)> {
+        let texcoord0 = triangle.vertices[0].texcoords();
+        let texcoord1 = triangle.vertices[1].texcoords();
+        let texcoord2 = triangle.vertices[2].texcoords();
+
+        let worldpos0 = triangle.vertices[0].position();
+        let worldpos1 = triangle.vertices[1].position();
+        let worldpos2 = triangle.vertices[2].position();
+
+        // Position in scaled image space
+        let mut image_pos0 = Vector2::new(texcoord0.x * (tex_width as f32), (1.0 - texcoord0.y) * (tex_height as f32));
+        let mut image_pos1 = Vector2::new(texcoord1.x * (tex_width as f32), (1.0 - texcoord1.y) * (tex_height as f32));
+        let mut image_pos2 = Vector2::new(texcoord2.x * (tex_width as f32), (1.0 - texcoord2.y) * (tex_height as f32));
+
+        let image_center = (1.0 / 3.0) * (image_pos0 + image_pos1 + image_pos2);
+
+        if image_pos0.x < image_center.x {
+            image_pos0.x -= padding as f32;
+        } else if image_pos0.x > image_center.x {
+            image_pos0.x += padding as f32;
+        }
+
+        if image_pos1.x < image_center.x {
+            image_pos1.x -= padding as f32;
+        } else if image_pos1.x > image_center.x {
+            image_pos1.x += padding as f32;
+        }
+
+        if image_pos2.x < image_center.x {
+            image_pos2.x -= padding as f32;
+        } else if image_pos2.x > image_center.x {
+            image_pos2.x += padding as f32;
+        }
+
+        if image_pos0.y < image_center.y {
+            image_pos0.y -= padding as f32;
+        } else if image_pos0.y > image_center.y {
+            image_pos0.y += padding as f32;
+        }
+
+        if image_pos1.y < image_center.y {
+            image_pos1.y -= padding as f32;
+        } else if image_pos1.y > image_center.y {
+            image_pos1.y += padding as f32;
+        }
+
+        if image_pos2.y < image_center.y {
+            image_pos2.y -= padding as f32;
+        } else if image_pos2.y > image_center.y {
+            image_pos2.y += padding as f32;
+        }
+
+        Triangle::new(
+            // Note might need to change order so the front side is up
+            (worldpos0, image_pos0),
+            (worldpos1, image_pos1),
+            (worldpos2, image_pos2)
+        )
+    }
+
+    /*#[allow(unused_variables)]
     fn gather_space_radius(&self, ent: &Entity, surf: &Surface, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 
@@ -212,7 +306,7 @@ impl SubstanceMapper {
         }
 
         concentrations
-    }
+    }*/
 
     fn gather_uv_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
@@ -258,7 +352,7 @@ impl SubstanceMapper {
     }
 
     /// Builds a kdtree of substance values indexed by their position in UV space
-    fn build_triangle_uv_tree(&self, entity: &Entity) -> KdTree<Triangle<(Vector3<f32>, Vector2<f32>)>, [f64; 2]> {
+    /*fn build_triangle_uv_tree(&self, entity: &Entity) -> KdTree<Triangle<(Vector3<f32>, Vector2<f32>)>, [f64; 2]> {
         let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
 
         for tri in entity.triangles() {
@@ -277,7 +371,7 @@ impl SubstanceMapper {
         }
 
         tree
-    }
+    }*/
 
     /// Looks up the surfels within the given radius at the given point in UV space
     /// and calculates a combined substance concentration.

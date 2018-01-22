@@ -61,6 +61,12 @@ impl vtx::Normal for Vertex {
     }
 }
 
+impl vtx::Texcoords for Vertex {
+    fn texcoords(&self) -> Vector2<f32> {
+        self.texcoords
+    }
+}
+
 impl Scene {
     pub fn empty() -> Scene {
         Scene {
