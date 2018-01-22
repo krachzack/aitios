@@ -67,10 +67,25 @@ impl<V> Rasterize for Triangle<V>
         let FDY31 = DY31 << 4;
 
         // Bounding rectangle
-        let minx = ([X1, X2, X3].iter().min().unwrap() + 0xF) >> 4;
-        let maxx = ([X1, X2, X3].iter().max().unwrap() + 0xF) >> 4;
-        let miny = ([Y1, Y2, Y3].iter().min().unwrap() + 0xF) >> 4;
-        let maxy = ([Y1, Y2, Y3].iter().max().unwrap() + 0xF) >> 4;
+        let mut minx = ([X1, X2, X3].iter().min().unwrap() + 0xF) >> 4;
+        let mut maxx = ([X1, X2, X3].iter().max().unwrap() + 0xF) >> 4;
+        let mut miny = ([Y1, Y2, Y3].iter().min().unwrap() + 0xF) >> 4;
+        let mut maxy = ([Y1, Y2, Y3].iter().max().unwrap() + 0xF) >> 4;
+
+        {
+            let last_x = raster_width as i64;
+            let last_y = raster_height as i64;
+
+            if minx < 0 { minx = 0; }
+            if minx > last_x { minx = last_x; }
+            if maxx < 0 { maxx = 0; }
+            if maxx > last_x { maxx = last_x; }
+
+            if miny < 0 { miny = 0; }
+            if miny > last_y { miny = last_y; }
+            if maxy < 0 { maxy = 0; }
+            if maxy > last_y { maxy = last_y; }
+        }
 
         // Half-edge constants
         let mut C1 = DY12 * X1 - DX12 * Y1;
@@ -95,10 +110,7 @@ impl<V> Rasterize for Triangle<V>
                 if CX1 > 0 && CX2 > 0 && CX3 > 0 {
                     let x = x as usize;
                     let y = y as usize;
-
-                    if x < raster_width && y < raster_height {
-                        render_pixel_at(x, y);
-                    }
+                    render_pixel_at(x, y);
                 }
 
                 CX1 -= FDY12;

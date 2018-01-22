@@ -122,7 +122,7 @@ impl SubstanceMapper {
                     .map(|&(dist, surfel)| (1.0 - (dist / (k * sample_radius))) * surfel.substances[self.substance_idx])
                     .sum::<f32>() / (/*PI * sample_radius * sample_radius*/ surfels.len() as f32);
 
-                concentrations[y * tex_width + x] = concentration;
+                concentrations[(tex_height - 1 - y) * tex_width + x] = concentration;
             }));
 
 
