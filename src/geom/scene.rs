@@ -85,6 +85,7 @@ impl Scene {
         let (models, materials) = tobj::load_obj(&Path::new(obj_file_path)).unwrap();
 
         let (min, max) = models.iter()
+            .filter(|m| !(m.mesh.texcoords.is_empty() || m.mesh.normals.is_empty())) // ignore meshes without texture coordinates and without normals
             .flat_map(|m| m.mesh.positions.chunks(3))
             .fold(
                 (Vector3::new(INFINITY, INFINITY, INFINITY), Vector3::new(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY)),
@@ -117,6 +118,7 @@ impl Scene {
         Scene {
             bounds: Aabb { min, max },
             entities: models.into_iter()
+                .filter(|m| !(m.mesh.texcoords.is_empty() || m.mesh.normals.is_empty())) // ignore meshes without texture coordinates and without normals
                 .enumerate()
                 .map(move |(idx, m)| {
                     // All meshes need a material, otherwise panic

@@ -72,6 +72,7 @@ impl<V> Rasterize for Triangle<V>
         let mut miny = ([Y1, Y2, Y3].iter().min().unwrap() + 0xF) >> 4;
         let mut maxy = ([Y1, Y2, Y3].iter().max().unwrap() + 0xF) >> 4;
 
+        // Clamp to raster size "cull"
         {
             let last_x = raster_width as i64;
             let last_y = raster_height as i64;
@@ -108,6 +109,7 @@ impl<V> Rasterize for Triangle<V>
 
             for x in minx..maxx {
                 if CX1 > 0 && CX2 > 0 && CX3 > 0 {
+                //if CX1 >= 0 && CX2 >= 0 && CX3 >= 0 {
                     let x = x as usize;
                     let y = y as usize;
                     render_pixel_at(x, y);

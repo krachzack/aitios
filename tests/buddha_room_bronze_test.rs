@@ -64,7 +64,7 @@ fn buddha_room_bronze_test() {
                 .point_shaped(0.0, 15.0, 0.0)
                 .emission_count(100000)
         })*/
-        .substance_map_gather_radius(0.07)
+        //.substance_map_gather_radius(0.07)
         .substance_map_size(
             0,
             1024,
@@ -72,7 +72,7 @@ fn buddha_room_bronze_test() {
         )
         .add_effect_density_map()
         .add_effect_blend(
-            vec![String::from("bronze"), String::from("stone")],
+            vec![String::from("bronze"), String::from("stone"), String::from("iron")],
             "test-scenes/buddha-scene-iron-concrete/",
             "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
         )

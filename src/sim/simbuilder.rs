@@ -89,7 +89,7 @@ impl SimulationBuilder {
             substance_idx: 0,
             substance_map_width: 4096,
             substance_map_height: 4096,
-            substance_map_sampling: Sampling::SpaceRadius(0.1),
+            substance_map_sampling: Sampling::NearestTriangle,
             output_path: None
         }
     }
@@ -202,10 +202,10 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn substance_map_gather_radius(mut self, radius: f32) -> SimulationBuilder {
-        self.substance_map_sampling = Sampling::SpaceRadius(radius);
+    /*pub fn substance_map_gather_radius(mut self, radius: f32) -> SimulationBuilder {
+        self.substance_map_sampling = Sampling::Rasterization(0.0);
         self
-    }
+    }*/
 
     pub fn add_effect_density_map(mut self) -> SimulationBuilder {
         self.effects.push(

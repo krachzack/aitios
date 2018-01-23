@@ -14,7 +14,7 @@ use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
 
 use std::f32;
-use std::f32::{NAN, NEG_INFINITY};
+use std::f32::{NAN, EPSILON, NEG_INFINITY};
 use std::time::Instant;
 use std::path::{Path, PathBuf};
 
@@ -35,14 +35,18 @@ pub enum Sampling {
     /// since they do not share a common UV space.
     #[allow(dead_code)]
     UvRadius(f32),
-    /// Approximates a world-space position for each UV coordinate by looking
-    /// up surfels nearby in UV space and approximating a position using their
-    /// positions and UV coordinates.
+    /// For each texel, looks up the triangle that contains the corresponding UV
+    /// coordinate. If no triangle contians it, looks up the triangle with the
+    /// nearest edge in UV space. Then, interpolates a world position from the
+    /// given UV position and UV triangle.
     ///
-    /// Then, near surfels are looked up in position space and these are collected.
-    /// When the radius is larger than the sampling distance, every texel should have
-    /// multiple surfels to work with
-    SpaceRadius(f32)
+    /// For the world position, looks up n near surfels and synthesizes a filtered
+    /// concentration.
+    NearestTriangle,
+    /// Draws the triangles into UV space, the float scales up the triangles a little.
+    /// When drawing, world positions are interpolated from vertex data, looked up
+    /// in the surfel kd tree and filtered
+    Rasterization(f32)
 }
 
 impl SceneEffect for SubstanceMapper {
@@ -93,19 +97,25 @@ impl SubstanceMapper {
             entity_idx,
             match self.sampling {
                 Sampling::UvRadius(radius) => self.gather_uv_radius(surf, entity_idx, radius, self.texture_width, self.texture_height),
-                Sampling::SpaceRadius(radius) => self.gather_space_radius(&scene.entities[entity_idx], surf, radius, self.texture_width, self.texture_height)
+                Sampling::NearestTriangle => self.gather_space_radius(&scene.entities[entity_idx], surf, self.texture_width, self.texture_height),
+                Sampling::Rasterization(padding) => self.gather_rasterize(&scene.entities[entity_idx], surf, self.texture_width, self.texture_height, padding)
             }
         )
     }
 
-    fn gather_space_radius(&self, ent: &Entity, surf: &Surface, _radius_: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+    /// Synthesizes the substance concentration texture by building a new set of triangles in UV space.
+    /// When rendering these triangles, the UV coordinate of a pixel is used for interpolation of a world position,
+    /// for this world position the nearest surfels are looked up and drawn using a filtering similar to photon mapping.
+    fn gather_rasterize(&self, ent: &Entity, surf: &Surface, tex_width: usize, tex_height: usize, padding: f32) -> Vec<f32> {
         info!("Rendering concentrations...");
 
         let mut concentrations = vec![NAN; tex_width * tex_height];
 
         ent.triangles()
+            // Ignore zero-area triangles
+            .filter(|t| t.area() > EPSILON)
             // Transform triangles into uv space scaled for target texture dimensions
-            .map(|t| Self::to_padded_uv_space(&t, tex_width, tex_height, 4))
+            .map(|t| Self::to_padded_uv_space(&t, tex_width, tex_height, padding))
             .for_each(|t| t.rasterize(tex_width, tex_height, |x, y| {
                let world_position = t.interpolate_at(Vector3::new(x as f32, y as f32, 0.0), |v| v.0);
                let surfels = surf.nearest_n(world_position, 4);
@@ -122,7 +132,7 @@ impl SubstanceMapper {
                     .map(|&(dist, surfel)| (1.0 - (dist / (k * sample_radius))) * surfel.substances[self.substance_idx])
                     .sum::<f32>() / (/*PI * sample_radius * sample_radius*/ surfels.len() as f32);
 
-                concentrations[(tex_height - 1 - y) * tex_width + x] = concentration;
+                concentrations[y * tex_width + x] = concentration;
             }));
 
 
@@ -131,68 +141,147 @@ impl SubstanceMapper {
         concentrations
     }
 
-    fn to_padded_uv_space<V : Position + Texcoords>(triangle: &Triangle<V>, tex_width: usize, tex_height: usize, padding: usize) -> Triangle<(Vector3<f32>, Vector2<f32>)> {
-        let texcoord0 = triangle.vertices[0].texcoords();
-        let texcoord1 = triangle.vertices[1].texcoords();
-        let texcoord2 = triangle.vertices[2].texcoords();
+    fn to_padded_uv_space<V : Position + Texcoords>(triangle: &Triangle<V>, tex_width: usize, tex_height: usize, padding: f32) -> Triangle<(Vector3<f32>, Vector2<f32>)> {
+        let ((texcoord0, texcoord1, texcoord2), (worldpos0, worldpos1, worldpos2)) = {
+            let texcoords = (
+                triangle.vertices[0].texcoords(),
+                triangle.vertices[1].texcoords(),
+                triangle.vertices[2].texcoords()
+            );
 
-        let worldpos0 = triangle.vertices[0].position();
-        let worldpos1 = triangle.vertices[1].position();
-        let worldpos2 = triangle.vertices[2].position();
+            let positions = (
+                triangle.vertices[0].position(),
+                triangle.vertices[1].position(),
+                triangle.vertices[2].position()
+            );
+
+            let tex_tri_normal = Triangle::new(
+                texcoords.0.extend(0.0),
+                texcoords.1.extend(0.0),
+                texcoords.2.extend(0.0)
+            ).normal();
+
+            if tex_tri_normal.z  >= 0.0 {
+                (texcoords, positions)
+            } else {
+                // Flip order if would be pointing downwards in uv space
+                //info!("Flipping order of {:?} because of normal {:?}", texcoords, tex_tri_normal);
+                (
+                    (
+                        texcoords.0,
+                        texcoords.2,
+                        texcoords.1
+                    ),
+                    (
+                        positions.0,
+                        positions.2,
+                        positions.1
+                    )
+                )
+            }
+        };
 
         // Position in scaled image space
-        let mut image_pos0 = Vector2::new(texcoord0.x * (tex_width as f32), (1.0 - texcoord0.y) * (tex_height as f32));
-        let mut image_pos1 = Vector2::new(texcoord1.x * (tex_width as f32), (1.0 - texcoord1.y) * (tex_height as f32));
-        let mut image_pos2 = Vector2::new(texcoord2.x * (tex_width as f32), (1.0 - texcoord2.y) * (tex_height as f32));
+        let mut image_pos0 = Vector2::new(texcoord0.x * (tex_width as f32), texcoord0.y * (tex_height as f32));
+        let mut image_pos1 = Vector2::new(texcoord1.x * (tex_width as f32), texcoord1.y * (tex_height as f32));
+        let mut image_pos2 = Vector2::new(texcoord2.x * (tex_width as f32), texcoord2.y * (tex_height as f32));
 
-        let image_center = (1.0 / 3.0) * (image_pos0 + image_pos1 + image_pos2);
+        if padding > 0.0 {
+            let image_center = (1.0 / 3.0) * (image_pos0 + image_pos1 + image_pos2);
 
-        if image_pos0.x < image_center.x {
-            image_pos0.x -= padding as f32;
-        } else if image_pos0.x > image_center.x {
-            image_pos0.x += padding as f32;
-        }
+            if image_pos0.x < image_center.x {
+                image_pos0.x -= padding;
+            } else if image_pos0.x > image_center.x {
+                image_pos0.x += padding;
+            }
 
-        if image_pos1.x < image_center.x {
-            image_pos1.x -= padding as f32;
-        } else if image_pos1.x > image_center.x {
-            image_pos1.x += padding as f32;
-        }
+            if image_pos1.x < image_center.x {
+                image_pos1.x -= padding;
+            } else if image_pos1.x > image_center.x {
+                image_pos1.x += padding;
+            }
 
-        if image_pos2.x < image_center.x {
-            image_pos2.x -= padding as f32;
-        } else if image_pos2.x > image_center.x {
-            image_pos2.x += padding as f32;
-        }
+            if image_pos2.x < image_center.x {
+                image_pos2.x -= padding;
+            } else if image_pos2.x > image_center.x {
+                image_pos2.x += padding;
+            }
 
-        if image_pos0.y < image_center.y {
-            image_pos0.y -= padding as f32;
-        } else if image_pos0.y > image_center.y {
-            image_pos0.y += padding as f32;
-        }
+            if image_pos0.y < image_center.y {
+                image_pos0.y -= padding;
+            } else if image_pos0.y > image_center.y {
+                image_pos0.y += padding;
+            }
 
-        if image_pos1.y < image_center.y {
-            image_pos1.y -= padding as f32;
-        } else if image_pos1.y > image_center.y {
-            image_pos1.y += padding as f32;
-        }
+            if image_pos1.y < image_center.y {
+                image_pos1.y -= padding;
+            } else if image_pos1.y > image_center.y {
+                image_pos1.y += padding;
+            }
 
-        if image_pos2.y < image_center.y {
-            image_pos2.y -= padding as f32;
-        } else if image_pos2.y > image_center.y {
-            image_pos2.y += padding as f32;
+            if image_pos2.y < image_center.y {
+                image_pos2.y -= padding;
+            } else if image_pos2.y > image_center.y {
+                image_pos2.y += padding;
+            }
         }
 
         Triangle::new(
             // Note might need to change order so the front side is up
             (worldpos0, image_pos0),
-            (worldpos1, image_pos1),
-            (worldpos2, image_pos2)
+            (worldpos2, image_pos2),
+            (worldpos1, image_pos1)
         )
     }
 
-    /*#[allow(unused_variables)]
-    fn gather_space_radius(&self, ent: &Entity, surf: &Surface, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+    fn gather_uv_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
+        let mut concentrations = Vec::with_capacity(tex_width * tex_height);
+
+        let concentration_tree = self.build_substance_uv_tree(surf, entity_idx);
+
+        // width and height of a pixel in UV space
+        let pixel_width = 1.0 / (tex_width as f32);
+        let pixel_height = 1.0 / (tex_height as f32);
+
+        let mut v = 0.5 * pixel_height;
+
+        for _ in 0..tex_height {
+            let mut u = 0.5 * pixel_width;
+
+            for _ in 0..tex_width {
+                concentrations.push(self.gather_concentration_at(&concentration_tree, u, v, radius));
+                u += pixel_width;
+            }
+            v += pixel_height;
+        }
+
+        concentrations
+    }
+
+    /// Builds a kdtree of substance values indexed by their position in UV space
+    fn build_substance_uv_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<f32, [f64; 2]> {
+        let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
+
+        for sample in &surf.samples {
+            if sample.entity_idx == entity_idx {
+                let pos = [sample.texcoords.x as f64, sample.texcoords.y as f64];
+                let concentration = sample.substances[self.substance_idx];
+
+                tree.add(
+                    pos,
+                    concentration
+                ).unwrap();
+            }
+        }
+
+        tree
+    }
+
+    /// Builds a kdtree of substance values indexed by their position in UV space
+    #[allow(unused_variables)]
+    fn gather_space_radius(&self, ent: &Entity, surf: &Surface, tex_width: usize, tex_height: usize) -> Vec<f32> {
+        info!("Gathering concentrations using old method");
+
         let mut concentrations = Vec::with_capacity(tex_width * tex_height);
 
         let tri_tree = self.build_triangle_uv_tree(ent);
@@ -306,53 +395,9 @@ impl SubstanceMapper {
         }
 
         concentrations
-    }*/
-
-    fn gather_uv_radius(&self, surf: &Surface, entity_idx: usize, radius: f32, tex_width: usize, tex_height: usize) -> Vec<f32> {
-        let mut concentrations = Vec::with_capacity(tex_width * tex_height);
-
-        let concentration_tree = self.build_substance_uv_tree(surf, entity_idx);
-
-        // width and height of a pixel in UV space
-        let pixel_width = 1.0 / (tex_width as f32);
-        let pixel_height = 1.0 / (tex_height as f32);
-
-        let mut v = 0.5 * pixel_height;
-
-        for _ in 0..tex_height {
-            let mut u = 0.5 * pixel_width;
-
-            for _ in 0..tex_width {
-                concentrations.push(self.gather_concentration_at(&concentration_tree, u, v, radius));
-                u += pixel_width;
-            }
-            v += pixel_height;
-        }
-
-        concentrations
     }
 
-    /// Builds a kdtree of substance values indexed by their position in UV space
-    fn build_substance_uv_tree(&self, surf: &Surface, entity_idx: usize) -> KdTree<f32, [f64; 2]> {
-        let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
-
-        for sample in &surf.samples {
-            if sample.entity_idx == entity_idx {
-                let pos = [sample.texcoords.x as f64, sample.texcoords.y as f64];
-                let concentration = sample.substances[self.substance_idx];
-
-                tree.add(
-                    pos,
-                    concentration
-                ).unwrap();
-            }
-        }
-
-        tree
-    }
-
-    /// Builds a kdtree of substance values indexed by their position in UV space
-    /*fn build_triangle_uv_tree(&self, entity: &Entity) -> KdTree<Triangle<(Vector3<f32>, Vector2<f32>)>, [f64; 2]> {
+    fn build_triangle_uv_tree(&self, entity: &Entity) -> KdTree<Triangle<(Vector3<f32>, Vector2<f32>)>, [f64; 2]> {
         let mut tree = KdTree::new(2); //KdTree::new_with_capacity(2, surf.samples.len());
 
         for tri in entity.triangles() {
@@ -371,7 +416,7 @@ impl SubstanceMapper {
         }
 
         tree
-    }*/
+    }
 
     /// Looks up the surfels within the given radius at the given point in UV space
     /// and calculates a combined substance concentration.
