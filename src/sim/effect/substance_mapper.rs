@@ -161,7 +161,7 @@ impl SubstanceMapper {
                 texcoords.2.extend(0.0)
             ).normal();
 
-            if tex_tri_normal.z  >= 0.0 {
+            if tex_tri_normal.z <= 0.0 {
                 (texcoords, positions)
             } else {
                 // Flip order if would be pointing downwards in uv space

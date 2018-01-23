@@ -16,9 +16,11 @@ pub trait Rasterize {
             C: Deref<Target = [P::Subpixel]> + DerefMut,
             F : Fn(usize, usize) -> P
     {
+        let width = buf.width() as usize;
+        let height = buf.height() as usize;
         self.rasterize(
             buf.width() as usize, buf.height() as usize,
-            |x, y| buf.put_pixel(x as u32, y as u32, shader_fn(x, y))
+            |x, y| buf.put_pixel(x as u32, (height - 1 - y) as u32, shader_fn(x, y))
         )
     }
 }
@@ -108,8 +110,8 @@ impl<V> Rasterize for Triangle<V>
             let mut CX3 = CY3;
 
             for x in minx..maxx {
+                //if CX1 >= -20 && CX2 >= -20 && CX3 >= -20 {
                 if CX1 > 0 && CX2 > 0 && CX3 > 0 {
-                //if CX1 >= 0 && CX2 >= 0 && CX3 >= 0 {
                     let x = x as usize;
                     let y = y as usize;
                     render_pixel_at(x, y);
@@ -131,6 +133,7 @@ impl<V> Rasterize for Triangle<V>
 mod test {
     use super::*;
     use ::geom::scene::Scene;
+    use ::geom::vtx::{Position};
     use ::image::{self, Rgb};
     use std::fs::File;
     use ::cgmath::{Vector2, Vector3};
@@ -142,13 +145,53 @@ mod test {
         let mut world_positions = ImageBuffer::from_pixel(4096, 4096, Rgb { data: [0, 0, 0] });
 
         entity.triangles()
-            .map(|t| Triangle::new(
-                (t.vertices[0].position, Vector2::new(t.vertices[0].texcoords.x * 4096.0, (1.0 - t.vertices[0].texcoords.y) * 4096.0)),
-                (t.vertices[1].position, Vector2::new(t.vertices[1].texcoords.x * 4096.0, (1.0 - t.vertices[1].texcoords.y) * 4096.0)),
-                (t.vertices[2].position, Vector2::new(t.vertices[2].texcoords.x * 4096.0, (1.0 - t.vertices[2].texcoords.y) * 4096.0))
-            ))
+            .map(|t| {
+                let ((texcoord0, texcoord1, texcoord2), (worldpos0, worldpos1, worldpos2)) = {
+                    let texcoords = (
+                        t.vertices[0].texcoords,
+                        t.vertices[1].texcoords,
+                        t.vertices[2].texcoords
+                    );
+
+                    let positions = (
+                        t.vertices[0].position,
+                        t.vertices[1].position,
+                        t.vertices[2].position
+                    );
+
+                    let tex_tri_normal = Triangle::new(
+                        texcoords.0.extend(0.0),
+                        texcoords.1.extend(0.0),
+                        texcoords.2.extend(0.0)
+                    ).normal();
+
+                    if tex_tri_normal.z <= 0.0 {
+                        (texcoords, positions)
+                    } else {
+                        // Flip order if would be pointing downwards in uv space
+                        (
+                            (
+                                texcoords.0,
+                                texcoords.2,
+                                texcoords.1
+                            ),
+                            (
+                                positions.0,
+                                positions.2,
+                                positions.1
+                            )
+                        )
+                    }
+                };
+
+                Triangle::new(
+                    UvVtx { uv_position: texcoord0 * 4096.0, world_position: worldpos0 },
+                    UvVtx { uv_position: texcoord1 * 4096.0, world_position: worldpos1 },
+                    UvVtx { uv_position: texcoord2 * 4096.0, world_position: worldpos2 },
+                )
+            })
             .for_each(|t| t.rasterize_to_image(&mut world_positions, |x, y| {
-                let interpolated_position = t.interpolate_at(Vector3::new(x as f32, y as f32, 0.0), |v| v.0);
+                let interpolated_position = t.interpolate_at(Vector3::new(x as f32, y as f32, 0.0), |v| v.world_position);
                 let color = [
                     (interpolated_position.x.fract() * 255.0) as u8,
                     (interpolated_position.y.fract() * 255.0) as u8,
@@ -163,10 +206,16 @@ mod test {
         image::ImageRgb8(world_positions).save(fout, image::PNG).unwrap();
     }
 
-    /*impl Position for (Vector3<f32>, Vector2<f32>) {
+    // Vertex that exposes uv coordinates as position, filling in 0.0 as Z coordinate
+    struct UvVtx {
+        uv_position: Vector2<f32>,
+        world_position: Vector3<f32>
+    }
+
+    impl Position for UvVtx {
         // Triangles in UV space
         fn position(&self) -> Vector3<f32> {
-            Vector3::new(self.1.x, self.1.y, 0.0)
+            self.uv_position.extend(0.0)
         }
-    }*/
+    }
 }

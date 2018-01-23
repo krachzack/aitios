@@ -224,7 +224,7 @@ impl<V> Triangle<V>
 
         let normal = scaled_normal.normalize();
         let tangent = a_to_b.normalize();
-        let binormal = (normal.cross(tangent)).normalize();
+        let binormal = (tangent.cross(normal)).normalize();
 
         (tangent, binormal, normal)
     }
@@ -539,26 +539,28 @@ mod test {
 
     #[test]
     fn test_calculate_face_normal_from_positions() {
-        // ccw on X/Z-Plane, normal should point in positive Y direction
+        // cw (backside) on X/Y-Plane when looking in negative Z direction, normal should point in negative Z direction
         let tri = Triangle::new(
-            Vector3::new(-1.0, 0.0, 1.0),
-            Vector3::new(1.0, 0.0, 1.0),
-            Vector3::new(0.0, 0.0, -1.0)
+            Vector3::new(-1.0, 1.0, 0.0),
+            Vector3::new(1.0, 1.0, 0.0),
+            Vector3::new(0.0, -1.0, 0.0)
         );
 
         let (tangent, binormal, normal) = tri.tangent_space();
-        assert_eq!(Vector3::new(0.0, 1.0, 0.0), normal);
+        assert_eq!(Vector3::new(0.0, 0.0, -1.0), normal);
         assert_eq!(Vector3::new(1.0, 0.0, 0.0), tangent);
-        assert_eq!(Vector3::new(0.0, 0.0, -1.0), binormal);
+        assert_eq!(Vector3::new(0.0, 1.0, 0.0), binormal);
 
-        // cw, normal should point down
+        // ccw on X/Y-Plane when looking in negative Z direction, normal should point in positive z direction
         let tri = Triangle::new(
-            Vector3::new(1.0, 0.0, 1.0),
-            Vector3::new(-1.0, 0.0, 1.0),
-            Vector3::new(0.0, 0.0, -1.0)
+            Vector3::new(-1.0, 1.0, 0.0),
+            Vector3::new(0.0, -1.0, 0.0),
+            Vector3::new(1.0, 1.0, 0.0)
         );
 
-        assert_eq!(Vector3::new(0.0, -1.0, 0.0), tri.normal());
+        assert_eq!(Vector3::new(0.0, 0.0, 1.0), tri.normal());
+        assert_eq!((Vector3::new(0.0, -1.0, 0.0) - Vector3::new(-1.0, 1.0, 0.0)).normalize(), tri.tangent());
+        assert_eq!(tri.binormal().dot(tri.normal()), 0.0);
     }
 
     #[test]
