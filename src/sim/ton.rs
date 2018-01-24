@@ -3,6 +3,11 @@ use ::cgmath::Vector3;
 use ::cgmath::InnerSpace;
 use ::rand;
 
+use ::geom::TriangleBins;
+use ::geom::scene::{Scene, Vertex};
+
+use std::f32::EPSILON;
+
 pub struct Ton {
     /// Probability of moving further in a straight line
     #[allow(dead_code)]
@@ -20,7 +25,6 @@ pub struct Ton {
     pub substances: Vec<f32>
 }
 
-#[derive(Clone)]
 // TODO the sampling should be stratified, e.g. by subdividing the possible directions into patches and ensuring every one gets its turn
 enum Shape {
     /// A point source shooting equally in all directions
@@ -31,7 +35,9 @@ enum Shape {
         center: Vector3<f32>,
         /// Distance from the center for ray origins
         radius: f32
-    }
+    },
+    /// Shoots from the given mesh in interpolated normal direction
+    Mesh { triangles: TriangleBins<Vertex> }
 }
 
 pub struct TonSource {
@@ -75,11 +81,36 @@ impl TonSource {
         let p_flow = self.p_flow;
         let interaction_radius = self.interaction_radius;
         let substances = self.substances.clone();
-        let shape = self.shape.clone();
+        //let shape = self.shape.clone();
 
         let emissions = (0..self.emission_count).map(
-            move |_| match shape {
-                Shape::Point { position } => (
+            move |_| {
+                let (origin, direction) = match &self.shape {
+                    &Shape::Point { position } => (
+                        position.clone(),
+                        // Random position on the unit sphere
+                        Vector3::new(
+                            rand::random::<f32>() - 0.5,
+                            rand::random::<f32>() - 0.5,
+                            rand::random::<f32>() - 0.5
+                        ).normalize()
+                    ),
+                    &Shape::Hemisphere { center, radius } => {
+                        let unit = sample_unit_hemisphere();
+                        let origin = center + radius * unit;
+                        // REVIEW wait, should they really all be flying towards the center?
+                        let direction = -unit;
+                        (origin, direction)
+                    },
+                    &Shape::Mesh { ref triangles } => {
+                        // Interpolate a vertex on a random position on a randomly selected triangle (weighted by area)
+                        let vtx = triangles.sample().sample_vertex();
+                        let direction = vtx.normal;
+                        let origin = vtx.position + direction * EPSILON;
+                        (origin, direction)
+                    }
+                };
+                (
                     Ton {
                         p_straight,
                         p_parabolic,
@@ -87,32 +118,9 @@ impl TonSource {
                         interaction_radius,
                         substances: substances.clone()
                     },
-                    position.clone(),
-                    // Random position on the unit sphere
-                    Vector3::new(
-                        rand::random::<f32>() - 0.5,
-                        rand::random::<f32>() - 0.5,
-                        rand::random::<f32>() - 0.5
-                    ).normalize()
-                ),
-                Shape::Hemisphere { center, radius } => {
-                    let unit = sample_unit_hemisphere();
-                    let origin = center + radius * unit;
-                    // REVIEW wait, should they really all be flying towards the center?
-                    let direction = -unit;
-
-                    (
-                        Ton {
-                            p_straight,
-                            p_parabolic,
-                            p_flow,
-                            interaction_radius,
-                            substances: substances.clone()
-                        },
-                        origin,
-                        direction
-                    )
-                }
+                    origin,
+                    direction
+                )
             }
         );
 
@@ -176,6 +184,19 @@ impl TonSourceBuilder {
 
     pub fn hemisphere_shaped(mut self, center: Vector3<f32>, radius: f32) -> TonSourceBuilder {
         self.shape = Shape::Hemisphere { center, radius };
+        self
+    }
+
+    pub fn mesh_shaped(mut self, obj_file_path: &str) -> TonSourceBuilder {
+        let scene = Scene::load_from_file(obj_file_path);
+
+        self.shape = Shape::Mesh {
+            triangles: TriangleBins::new(
+                scene.triangles().collect(),
+                32
+            )
+        };
+
         self
     }
 

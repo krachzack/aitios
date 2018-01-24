@@ -1,5 +1,5 @@
+mod area_weighted;
 mod vtx;
-mod bins;
 mod darts;
 
 use self::darts::Darts;

@@ -14,6 +14,7 @@ use super::spatial::Spatial;
 use super::aabb::Aabb;
 
 use std::f32::{INFINITY, NEG_INFINITY};
+use std::ops::{Mul, Add};
 
 pub type Triangle = tri::Triangle<Vertex>;
 
@@ -40,7 +41,7 @@ pub struct Mesh {
     pub texcoords: Vec<f32>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Vertex {
     pub position: Vector3<f32>,
     pub normal: Vector3<f32>,
@@ -64,6 +65,36 @@ impl vtx::Normal for Vertex {
 impl vtx::Texcoords for Vertex {
     fn texcoords(&self) -> Vector2<f32> {
         self.texcoords
+    }
+}
+
+impl Mul<f32> for Vertex {
+    type Output = Vertex;
+
+    fn mul(self, scalar: f32) -> Self::Output {
+        Vertex {
+            position: self.position * scalar,
+            normal: self.normal * scalar,
+            texcoords: self.texcoords * scalar,
+            material_idx: self.material_idx,
+            entity_idx: self.entity_idx
+        }
+    }
+}
+
+impl Add for Vertex {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        // Mother triangle is taken from lhs, but is assumed
+        // to by identical for rhs
+        Vertex {
+            position: self.position + rhs.position,
+            normal: self.normal + rhs.normal,
+            texcoords: self.texcoords + rhs.texcoords,
+            material_idx: self.material_idx,
+            entity_idx: self.entity_idx
+        }
     }
 }
 

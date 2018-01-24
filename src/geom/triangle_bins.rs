@@ -1,6 +1,5 @@
-use super::vtx::SparseVertex;
-
 use ::geom::tri::Triangle;
+use ::geom::vtx::Position;
 
 use ::rand;
 use ::rand::Rng;
@@ -9,8 +8,12 @@ use std::f32;
 
 use ::float_extras::f64::ilogb;
 
-pub struct TriangleBins {
-    bins: Vec<Vec<Triangle<SparseVertex>>>,
+use std::ops::{Add, Mul};
+
+pub struct TriangleBins<V>
+    where V : Position + Clone + Mul<f32, Output = V> + Add<V, Output = V>
+{
+    bins: Vec<Vec<Triangle<V>>>,
     /// One over the value of one area unit in bin_areas and bin_areas_sum
     inv_area_quantum: f32,
     /// Approximate area of all binned triangles represented as a multiple of area_quantum
@@ -26,11 +29,13 @@ pub struct TriangleBins {
     triangle_count: usize
 }
 
-impl TriangleBins {
+impl<V> TriangleBins<V>
+    where V : Position + Clone + Mul<f32, Output = V> + Add<V, Output = V>
+{
     pub fn new(
-        triangles: Vec<Triangle<SparseVertex>>,
+        triangles: Vec<Triangle<V>>,
         bin_count: usize
-    ) -> TriangleBins {
+    ) -> TriangleBins<V> {
 
         let (bins, first_bin_max_area) = partition_triangles(triangles, bin_count);
 
@@ -85,7 +90,7 @@ impl TriangleBins {
         ilogb((first_bin_max_area / area) as f64) as usize
     }
 
-    pub fn push(&mut self, tri: Triangle<SparseVertex>) {
+    pub fn push(&mut self, tri: Triangle<V>) {
         let area = tri.area();
         let bin_idx =  self.bin_idx_by_area(area);
         if bin_idx < self.bins.len() {
@@ -102,31 +107,27 @@ impl TriangleBins {
     /// to its area and then selecting a triangle via rejection sampling.
     ///
     /// The sampled triangle is removed from its bin.
-    pub fn sample_triangle(&mut self) -> Triangle<SparseVertex> {
+    pub fn pop(&mut self) -> Triangle<V> {
         assert!(self.bin_areas_sum > 0, "Can only sample triangle with remaining non-empty triangle bins. triangle_count={} bin_areas_sum={} bin_areas={:?}", self.triangle_count, self.bin_areas_sum, self.bin_areas);
 
         let bin_idx = self.sample_bin_idx();
-        let bin_max_area = self.bin_max_area(bin_idx);
-        let mut rng = rand::thread_rng();
+        let tri_idx = self.sample_triangle_idx_from_bin_idx(bin_idx);
 
-        // Rejection sampling, try random and accept with probility proportional
-        // to area. This is apparently constant time on average
-        loop {
-            let random_tri_idx = rng.gen_range(0_usize, self.bins[bin_idx].len());
-            let area = self.bins[bin_idx][random_tri_idx].area();
-            let acceptance_probability = area / bin_max_area;
+        let random_tri = self.bins[bin_idx].swap_remove(tri_idx);
 
-            if rng.next_f32() < acceptance_probability {
-                let random_tri = self.bins[bin_idx].swap_remove(random_tri_idx);
+        let area = self.integral_area(random_tri.area());
+        self.bin_areas[bin_idx] -= area;
+        self.bin_areas_sum -= area;
+        self.triangle_count -= 1;
 
-                let area = self.integral_area(random_tri.area());
-                self.bin_areas[bin_idx] -= area;
-                self.bin_areas_sum -= area;
-                self.triangle_count -= 1;
+        random_tri
+    }
 
-                return random_tri;
-            }
-        }
+    /// Returns a reference to a randomly selected triangle without removing it
+    pub fn sample<'a>(&'a self) -> &'a Triangle<V> {
+        let bin_idx = self.sample_bin_idx();
+        let tri_idx = self.sample_triangle_idx_from_bin_idx(bin_idx);
+        &self.bins[bin_idx][tri_idx]
     }
 
     pub fn triangle_count(&self) -> usize {
@@ -134,7 +135,7 @@ impl TriangleBins {
     }
 
     /// Samples a random bin index with a probability proportional to the contained triangles area
-    fn sample_bin_idx(&mut self) -> usize {
+    fn sample_bin_idx(&self) -> usize {
         let mut rng = rand::thread_rng();
         let mut r = rng.gen_range(0, self.bin_areas_sum);
 
@@ -152,12 +153,30 @@ impl TriangleBins {
 
         panic!("No bin sampled, bin_areas_sum ({}) and bin_areas.sum() ({}) must be out of sync, retrying with refreshed areas, r={}", self.bin_areas_sum, self.bin_areas.iter().sum::<u64>(), r);
     }
+
+    fn sample_triangle_idx_from_bin_idx(&self, bin_idx: usize) -> usize {
+        let mut rng = rand::thread_rng();
+        let bin_max_area = self.bin_max_area(bin_idx);
+
+        // Rejection sampling, try random and accept with probility proportional
+        // to area. This is apparently constant time on average
+        loop {
+            let random_tri_idx = rng.gen_range(0_usize, self.bins[bin_idx].len());
+            let area = self.bins[bin_idx][random_tri_idx].area();
+            let acceptance_probability = area / bin_max_area;
+
+            if rng.next_f32() < acceptance_probability {
+                return random_tri_idx;
+            }
+        }
+    }
 }
 
-fn partition_triangles(
-    triangles: Vec<Triangle<SparseVertex>>,
+fn partition_triangles<V>(
+    triangles: Vec<Triangle<V>>,
     bin_count: usize
-) -> (Vec<Vec<Triangle<SparseVertex>>>, f32)
+) -> (Vec<Vec<Triangle<V>>>, f32)
+    where V : Position + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
     let max_area = triangles.iter()
         .map(|t| t.area())

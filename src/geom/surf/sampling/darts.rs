@@ -1,7 +1,7 @@
 
 use super::vtx::SparseVertex;
-use super::bins::TriangleBins;
 
+use ::geom::TriangleBins;
 use ::geom::tri::Triangle;
 use ::geom::vtx::Position;
 
@@ -12,7 +12,7 @@ use ::cgmath::Vector3;
 use std::f32::consts::PI;
 
 pub struct Darts {
-    active_triangles: TriangleBins,
+    active_triangles: TriangleBins<SparseVertex>,
     min_point_distance: f64,
     /// Do not split a triangle if the resulting subfragments would have a smaller area than this
     disregard_area: f32,
@@ -94,7 +94,7 @@ impl Iterator for Darts {
                 return None;
             }
 
-            let fragment = self.active_triangles.sample_triangle();
+            let fragment = self.active_triangles.pop();
 
             let sample = {
                 let sample_candidate = fragment.sample_vertex();
