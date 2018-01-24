@@ -222,3 +222,20 @@ impl TonSourceBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_shoot_from_mesh() {
+        let src = TonSourceBuilder::new()
+            .p_flow(0.2)
+            .emission_count(10)
+            .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/buddha-scene-ton-source-sun.obj")
+            .build();
+
+        assert_eq!(src.emit().count(), 10);
+        assert!(src.emit().all(|(ton, origin, direction)| ton.p_flow == 0.2 && origin.y > 0.1 && direction.y < 0.0));
+    }
+}

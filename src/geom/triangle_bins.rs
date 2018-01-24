@@ -125,6 +125,8 @@ impl<V> TriangleBins<V>
 
     /// Returns a reference to a randomly selected triangle without removing it
     pub fn sample<'a>(&'a self) -> &'a Triangle<V> {
+        assert!(self.bin_areas_sum > 0, "Can only sample triangle with remaining non-empty triangle bins. triangle_count={} bin_areas_sum={} bin_areas={:?}", self.triangle_count, self.bin_areas_sum, self.bin_areas);
+
         let bin_idx = self.sample_bin_idx();
         let tri_idx = self.sample_triangle_idx_from_bin_idx(bin_idx);
         &self.bins[bin_idx][tri_idx]

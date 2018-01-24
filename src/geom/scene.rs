@@ -13,7 +13,7 @@ use super::intersect::IntersectRay;
 use super::spatial::Spatial;
 use super::aabb::Aabb;
 
-use std::f32::{INFINITY, NEG_INFINITY};
+use std::f32::{INFINITY, NEG_INFINITY, NAN};
 use std::ops::{Mul, Add};
 
 pub type Triangle = tri::Triangle<Vertex>;
@@ -116,7 +116,6 @@ impl Scene {
         let (models, materials) = tobj::load_obj(&Path::new(obj_file_path)).unwrap();
 
         let (min, max) = models.iter()
-            .filter(|m| !(m.mesh.texcoords.is_empty() || m.mesh.normals.is_empty())) // ignore meshes without texture coordinates and without normals
             .flat_map(|m| m.mesh.positions.chunks(3))
             .fold(
                 (Vector3::new(INFINITY, INFINITY, INFINITY), Vector3::new(NEG_INFINITY, NEG_INFINITY, NEG_INFINITY)),
@@ -149,7 +148,6 @@ impl Scene {
         Scene {
             bounds: Aabb { min, max },
             entities: models.into_iter()
-                .filter(|m| !(m.mesh.texcoords.is_empty() || m.mesh.normals.is_empty())) // ignore meshes without texture coordinates and without normals
                 .enumerate()
                 .map(move |(idx, m)| {
                     // All meshes need a material, otherwise panic
@@ -186,7 +184,12 @@ impl Scene {
                         let material_idx = e.material_idx;
 
                         assert!(!normals.is_empty());
-                        assert!(!texcoords.is_empty());
+
+                        let undefined_texcoords = if texcoords.is_empty() {
+                            Some(Vector2::new(NAN, NAN))
+                        } else {
+                            None
+                        };
 
                         mesh.indices.chunks(3)
                             .map(
@@ -194,21 +197,21 @@ impl Scene {
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[0]+0) as usize], positions[(3*i[0]+1) as usize], positions[(3*i[0]+2) as usize]),
                                         normal: Vector3::new(normals[(3*i[0]+0) as usize], normals[(3*i[0]+1) as usize], normals[(3*i[0]+2) as usize]),
-                                        texcoords: Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize]),
+                                        texcoords: undefined_texcoords.unwrap_or_else(|| Vector2::new(texcoords[(2*i[0]+0) as usize], texcoords[(2*i[0]+1) as usize])),
                                         material_idx,
                                         entity_idx
                                     },
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[1]+0) as usize], positions[(3*i[1]+1) as usize], positions[(3*i[1]+2) as usize]),
                                         normal: Vector3::new(normals[(3*i[1]+0) as usize], normals[(3*i[1]+1) as usize], normals[(3*i[1]+2) as usize]),
-                                        texcoords: Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize]),
+                                        texcoords: undefined_texcoords.unwrap_or_else(|| Vector2::new(texcoords[(2*i[1]+0) as usize], texcoords[(2*i[1]+1) as usize])),
                                         material_idx,
                                         entity_idx
                                     },
                                     Vertex {
                                         position: Vector3::new(positions[(3*i[2]+0) as usize], positions[(3*i[2]+1) as usize], positions[(3*i[2]+2) as usize]),
                                         normal: Vector3::new(normals[(3*i[2]+0) as usize], normals[(3*i[2]+1) as usize], normals[(3*i[2]+2) as usize]),
-                                        texcoords: Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize]),
+                                        texcoords: undefined_texcoords.unwrap_or_else(|| Vector2::new(texcoords[(2*i[2]+0) as usize], texcoords[(2*i[2]+1) as usize])),
                                         material_idx,
                                         entity_idx
                                     }
