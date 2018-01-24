@@ -35,7 +35,6 @@ fn buddha_room_bronze_test() {
     // TODO decouple simulation from effects
 
     aitios::SimulationBuilder::new()
-        .ton_to_surface_interaction_weight(0.02)
         .surfel_obj_path(surfels_path)
         .scene(
             &model_obj_path,
@@ -45,16 +44,23 @@ fn buddha_room_bronze_test() {
                     .delta_parabolic(1.0/3.0) // up to three bounces
                     .delta_flow(0.2) // up to 5 flow events per gammaton
                     .substances(&vec![0.0])
+                    .deposition_rates(vec![0.3])
+                    .override_material(
+                        "stone",
+                        |s| {
+                            s.deposition_rates(vec![0.1])
+                        }
+                    )
             }
         )
         .add_source(|s| {
             s.p_straight(0.0)
-                .p_parabolic(1.0)
-                .p_flow(0.0)
+                .p_parabolic(0.8)
+                .p_flow(0.2)
                 .interaction_radius(0.05)
                 .substances(&vec![1.0])
-                .pickup_rates(vec![0.02])
-                .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/onto-belly.obj")
+                .pickup_rates(vec![0.1])
+                .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/source-sky.obj")
                 .emission_count(100000)
         })
         /*.add_environment_source(|s| {

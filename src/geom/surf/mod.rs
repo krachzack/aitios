@@ -40,7 +40,9 @@ pub struct Surfel {
     #[allow(dead_code)]
     pub delta_flow: f32,
     /// Holds the amount of substances as numbers in the interval 0..1
-    pub substances: Vec<f32>
+    pub substances: Vec<f32>,
+    /// Weights for the transport of substances from a settled ton to a surfel
+    pub deposition_rates: Vec<f32>
 }
 
 impl Surface {

@@ -40,12 +40,6 @@ pub struct Simulation {
     /// Scene sinks that will be invoked after the completion of the last iteration to serialize
     /// scene or materials.
     scene_sinks: Vec<Box<SceneSink>>,
-    /// Determines how much of a substance stored in a ton will be transferred to an interacted
-    /// surfel.
-    ///
-    /// The general form is:
-    /// surfel.substance[n] = surfel.substance[n] + ton_to_surface_interaction_weight * ton.substance[n]
-    ton_to_surface_interaction_weight: f32,
     /// Base path for synthesized output files
     output_path: PathBuf,
     /// If set, holds the path where to write an obj with the subset of the surfels that were hit
@@ -58,7 +52,6 @@ impl Simulation {
     pub fn new(
         scene: Scene,
         surface: Surface,
-        ton_to_surface_interaction_weight: f32,
         iterations: u32,
         sources: Vec<TonSource>,
         scene_effects: Vec<Box<SceneEffect>>,
@@ -73,7 +66,6 @@ impl Simulation {
             sources,
             scene_effects,
             scene_sinks,
-            ton_to_surface_interaction_weight,
             output_path,
             hit_map_path
         }
@@ -109,7 +101,7 @@ impl Simulation {
         self.dump_hit_map();
     }
 
-    fn interact(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+    fn interact(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>) {
         let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 
         if interacting_surfel_idxs.is_empty() {
@@ -143,17 +135,17 @@ impl Simulation {
 
             // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
             //let reflection_direction = normal;
-            Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction, ton_to_surface_interaction_weight);
+            Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction);
         } else if random < (ton.p_straight + ton.p_parabolic) {
-            Self::trace_parabolic(surface, octree, ton, hit_tri, intersection_point, ton_to_surface_interaction_weight);
+            Self::trace_parabolic(surface, octree, ton, hit_tri, intersection_point);
         } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
-            Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, incoming_direction, ton_to_surface_interaction_weight);
+            Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, incoming_direction);
         } else {
             for surfel_idx in &interacting_surfel_idxs {
                 let interacting_surfel = &mut surface.samples[*surfel_idx];
 
                 // FIXME should only settled tons transport material? The fur simulation implements it that way
-                Self::transport_material_to_surf(ton, interacting_surfel, ton_to_surface_interaction_weight);
+                Self::transport_material_to_surf(ton, interacting_surfel);
             }
         }
     }
@@ -166,24 +158,23 @@ impl Simulation {
 
         info!("Tracing particles and transporting substances...  ");
         let before = Instant::now();
-        let ton_to_surface_interaction_weight = self.ton_to_surface_interaction_weight;
         let surf = &mut self.surface;
 
         // First motion state is always trace straight
         self.sources.iter()
             .flat_map(|src| src.emit())
-            .for_each(move |(mut ton, ray_origin, ray_direction)| Self::trace_straight(surf, &octree, &mut ton, ray_origin, ray_direction, ton_to_surface_interaction_weight));
+            .for_each(move |(mut ton, ray_origin, ray_direction)| Self::trace_straight(surf, &octree, &mut ton, ray_origin, ray_direction));
         info!("Ok, took {}s", before.elapsed().as_secs());
     }
 
-    fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+    fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>) {
         if let Some((hit_tri, param)) = octree.ray_intersection_target_and_parameter(origin, direction) {
             let intersection_point = origin + direction * param;
-            Self::interact(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
+            Self::interact(surface, octree, ton, hit_tri, intersection_point, direction);
         }
     }
 
-    fn trace_flow(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+    fn trace_flow(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>) {
         let normal = hit_tri.normal();
 
         let origin_offset_mag = 0.002; // both affect the distance of a flow event
@@ -201,10 +192,10 @@ impl Simulation {
         };
         let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
 
-        Self::trace_straight(surface, octree, ton, new_origin, new_direction, ton_to_surface_interaction_weight);
+        Self::trace_straight(surface, octree, ton, new_origin, new_direction);
     }
 
-    fn trace_parabolic(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+    fn trace_parabolic(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>) {
         let mut rng = rand::thread_rng();
         let random_on_unit_sphere = Vector3::new(
                 rng.next_f32(),
@@ -212,8 +203,8 @@ impl Simulation {
                 rng.next_f32()
             ).normalize();
 
-        let takeoff_velocity_mag = 9.81 / 8.0;
-        let timestep = 1.0 / 3.0; // 0.333333 seconds, more is more exact but slower
+        let takeoff_velocity_mag = 9.81 / 3.0;
+        let timestep = 1.0 / 5.0; // 0.2 seconds, more is more exact but slower
         let gravity_acceleration = Vector3::new(0.0, -9.81, 0.0);
         // REVIEW regarding surface as diffuse, could also reflect on the normal
         let normal = hit_tri.normal();
@@ -230,7 +221,7 @@ impl Simulation {
 
             if let Some((hit_tri, t)) = octree.line_segment_intersection_target_and_parameter(position, direction, dist) {
                 let intersection_point = position + t * direction;
-                Self::interact(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
+                Self::interact(surface, octree, ton, hit_tri, intersection_point, direction);
                 return;
             } else {
                 // No intersection, safe to move particle without penetrating objects
@@ -239,17 +230,20 @@ impl Simulation {
         }
     }
 
-    fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
+    fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel) {
         assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
 
-        let material_transports = interacting_surfel.substances
-            .iter_mut()
+        let material_transports = interacting_surfel.deposition_rates.iter()
             .zip(
-                ton.substances.iter()
+                interacting_surfel.substances
+                    .iter_mut()
+                    .zip(
+                        ton.substances.iter()
+                    )
             );
 
-        for (ref mut surfel_material, &ton_material) in material_transports {
-            **surfel_material = **surfel_material + ton_to_surface_interaction_weight * ton_material;
+        for (ref deposition_rate, (ref mut surfel_material, &ton_material)) in material_transports {
+            **surfel_material = **surfel_material + *deposition_rate * ton_material;
         }
     }
 

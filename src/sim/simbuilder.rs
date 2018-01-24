@@ -51,7 +51,6 @@ use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMa
 ///         "output/buddha-scene-weathered.obj",
 ///         "output/buddha-scene-weathered.mtl"
 ///     )
-///     .ton_to_surface_interaction_weight(0.05)
 ///     .iterations(1)
 ///     .build()
 ///     .run();
@@ -65,7 +64,6 @@ pub struct SimulationBuilder {
     sources: Vec<TonSource>,
     effects: Vec<Box<SubstanceMapMaterialEffect>>,
     scene_sinks: Vec<Box<SceneSink>>,
-    ton_to_surface_interaction_weight: f32,
     hit_map_path: Option<PathBuf>,
     surfel_obj_path: Option<PathBuf>,
     substance_idx: usize,
@@ -85,7 +83,6 @@ impl SimulationBuilder {
             sources: Vec::new(),
             effects: Vec::new(),
             scene_sinks: Vec::new(),
-            ton_to_surface_interaction_weight: 0.3,
             hit_map_path: None,
             surfel_obj_path: None,
             substance_idx: 0,
@@ -146,11 +143,6 @@ impl SimulationBuilder {
 
     pub fn surfel_obj_path<S : Into<PathBuf>>(mut self, path: S) -> SimulationBuilder {
         self.surfel_obj_path = Some(path.into());
-        self
-    }
-
-    pub fn ton_to_surface_interaction_weight(mut self, ton_to_surface_interaction_weight: f32) -> SimulationBuilder {
-        self.ton_to_surface_interaction_weight = ton_to_surface_interaction_weight;
         self
     }
 
@@ -269,7 +261,6 @@ impl SimulationBuilder {
         Simulation::new(
             self.scene,
             self.surface.unwrap(),
-            self.ton_to_surface_interaction_weight,
             self.iterations,
             self.sources,
             vec![ Box::new(substance_mapper) ],

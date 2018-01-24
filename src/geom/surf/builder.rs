@@ -5,6 +5,8 @@ use ::cgmath::prelude::*;
 use ::nearest_kdtree::KdTree;
 use super::sampling::throw_darts;
 
+use std::collections::HashMap;
+
 pub struct SurfaceBuilder {
     samples: Vec<Surfel>,
     /// Initial deterioration rate of the probability of a gammaton moving further in a straight line
@@ -15,7 +17,9 @@ pub struct SurfaceBuilder {
     delta_flow: f32,
     /// Holds the initial amount of substances as numbers in the interval 0..1
     substances: Vec<f32>,
+    deposition_rates: Vec<f32>,
     min_sample_distance: f32,
+    material_overrides: HashMap<String, Box<SurfaceBuilder>>
 }
 
 impl SurfaceBuilder {
@@ -26,12 +30,42 @@ impl SurfaceBuilder {
             delta_parabolic: 0.0,
             delta_flow: 0.0,
             substances: Vec::new(),
-            min_sample_distance: 0.1
+            deposition_rates: Vec::new(),
+            min_sample_distance: 0.1,
+            material_overrides: HashMap::new()
         }
     }
 
+    pub fn override_material<F, S>(mut self, material_name: S, override_func: F) -> SurfaceBuilder
+        where F : FnOnce(SurfaceBuilder) -> SurfaceBuilder, S : Into<String>
+    {
+        let derived_builder = SurfaceBuilder {
+            samples: Vec::new(),
+            substances: self.substances.clone(),
+            deposition_rates: self.deposition_rates.clone(),
+            material_overrides: HashMap::new(),
+            ..self
+        };
+
+        self.material_overrides.insert(
+            material_name.into(),
+            Box::new(override_func(derived_builder))
+        );
+
+        self
+    }
+
+    /// Sets the default delta straight. Can be overriden per material.
     pub fn delta_straight(mut self, delta_straight: f32) -> SurfaceBuilder {
         self.delta_straight = delta_straight;
+        self
+    }
+
+    /// Sets the default deposition rate if not overridden per material
+    pub fn deposition_rates<D>(mut self, deposition_rates: D) -> SurfaceBuilder
+        where D : IntoIterator<Item = f32>
+    {
+        self.deposition_rates = deposition_rates.into_iter().collect();
         self
     }
 
@@ -72,7 +106,8 @@ impl SurfaceBuilder {
             delta_straight: self.delta_straight,
             delta_parabolic: self.delta_parabolic,
             delta_flow: self.delta_flow,
-            substances: self.substances.clone()
+            substances: self.substances.clone(),
+            deposition_rates: self.deposition_rates.clone()
         };
 
         let surfels = points.into_iter()
@@ -80,6 +115,7 @@ impl SurfaceBuilder {
                 |position| Surfel {
                     position: position,
                     substances: prototype_surfel.substances.clone(),
+                    deposition_rates: prototype_surfel.deposition_rates.clone(),
                     ..prototype_surfel
                 }
             );
@@ -88,55 +124,71 @@ impl SurfaceBuilder {
         self
     }
 
-    /// Creates a surface model by sampling an amount of random points on each
-    /// of the traingles in the given indexed mesh that is proportional to the
-    /// area of the individual triangles. This way, the sampling is sort of uniform
-    /// but not really.
+    /// Creates a surface model by sampling a poisson disk set on the surface of the given scene.
+    /// The distance between the neighbouring points should be more than min_sample_distance but
+    /// smaller than 2 * min_sample_distance.
     ///
     /// The initial values of the surfels are provided to the builder before calling
     /// this method (not after).
     pub fn add_surface_from_scene(mut self, scene: &Scene) -> SurfaceBuilder {
-        let delta_straight = self.delta_straight;
-        let delta_parabolic = self.delta_parabolic;
-        let delta_flow = self.delta_flow;
-        let substances = self.substances.clone();
+        let boxed_self = Box::new(SurfaceBuilder {
+            samples: Vec::new(),
+            substances: self.substances.clone(),
+            deposition_rates: self.deposition_rates.clone(),
+            material_overrides: HashMap::new(),
+            ..self
+        });
 
-        self.samples.extend(
-            throw_darts(
-                scene.triangles(),
-                self.min_sample_distance,
-                |t, position| {
-                    let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
+        {
+            let builder_per_material : Vec<&Box<SurfaceBuilder>> = {
+                let overrides = &self.material_overrides;
+                scene.materials.iter()
+                    .map(|m| overrides.get(&m.name).unwrap_or(&boxed_self))
+                    .collect()
+            };
 
-                    // TODO maybe add warning if UVs degenerate
-                    if texcoords.x < 0.0 {
-                        texcoords.x = 0.0;
-                    } else if texcoords.x > 1.0 {
-                        texcoords.x = 1.0;
+            self.samples.extend(
+                throw_darts(
+                    scene.triangles(),
+                    self.min_sample_distance,
+                    |t, position| {
+                        let material_builder = builder_per_material[t.vertices[0].material_idx];
+
+                        let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
+
+                        // TODO maybe add warning if UVs degenerate
+                        if texcoords.x < 0.0 {
+                            texcoords.x = 0.0;
+                        } else if texcoords.x > 1.0 {
+                            texcoords.x = 1.0;
+                        }
+
+                        if texcoords.y < 0.0 {
+                            texcoords.y = 0.0;
+                        } else if texcoords.y > 1.0 {
+                            texcoords.y = 1.0;
+                        }
+
+                        // TODO this would be a good place to read initital surface properties from a texture
+
+                        let normal = t.interpolate_at(position, |v| v.normal);
+                        let normal = normal.normalize(); // normalize since interpolation can cause distortions
+
+                        Surfel {
+                            position,
+                            normal,
+                            texcoords,
+                            entity_idx: t.vertices[0].entity_idx,
+                            delta_straight: material_builder.delta_straight,
+                            delta_parabolic: material_builder.delta_parabolic,
+                            delta_flow: material_builder.delta_flow,
+                            substances: material_builder.substances.clone(),
+                            deposition_rates: material_builder.deposition_rates.clone()
+                        }
                     }
-
-                    if texcoords.y < 0.0 {
-                        texcoords.y = 0.0;
-                    } else if texcoords.y > 1.0 {
-                        texcoords.y = 1.0;
-                    }
-
-                    let normal = t.interpolate_at(position, |v| v.normal);
-                    let normal = normal.normalize(); // normalize since interpolation can cause distortions
-
-                    Surfel {
-                        position,
-                        normal,
-                        texcoords,
-                        entity_idx: t.vertices[0].entity_idx,
-                        delta_straight: delta_straight,
-                        delta_parabolic: delta_parabolic,
-                        delta_flow: delta_flow,
-                        substances: substances.clone()
-                    }
-                }
-            )
-        );
+                )
+            );
+        }
 
         self
     }
