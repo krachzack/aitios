@@ -41,14 +41,22 @@ fn buddha_room_bronze_test() {
             &model_obj_path,
             |s| {
                 s.min_sample_distance(0.02)
-                    // About half of incident gammatons settle
                     .delta_straight(1.0)
-                    .delta_parabolic(1.0)
+                    .delta_parabolic(1.0/3.0) // up to three bounces
                     .delta_flow(0.2) // up to 5 flow events per gammaton
                     .substances(&vec![0.0])
             }
         )
-        .add_environment_source(|s| {
+        .add_source(|s| {
+            s.p_straight(0.0)
+                .p_parabolic(1.0)
+                .p_flow(0.0)
+                .interaction_radius(0.05)
+                .substances(&vec![1.0])
+                .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/onto-belly.obj")
+                .emission_count(100000)
+        })
+        /*.add_environment_source(|s| {
             s.p_straight(0.0)
                 .p_parabolic(0.0)
                 .p_flow(1.0)
@@ -56,7 +64,7 @@ fn buddha_room_bronze_test() {
                 .substances(&vec![1.0])
                 .point_shaped(0.0, 3.0, 0.0)
                 .emission_count(100000)
-        })
+        })*/
         /*.add_source(|s| {
             s.p_straight(1.0)
                 .interaction_radius(0.05)
@@ -71,12 +79,12 @@ fn buddha_room_bronze_test() {
             1024
         )
         .add_effect_density_map()
-        .add_effect_ramp()
-        /*.add_effect_blend(
+        //.add_effect_ramp()
+        .add_effect_blend(
             vec![String::from("bronze"), String::from("stone"), String::from("iron")],
             "test-scenes/buddha-scene-iron-concrete/",
             "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
-        )*/
+        )
         /*.add_effect_blend(
             0,
             "stone",

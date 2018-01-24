@@ -10,14 +10,11 @@ use std::f32::EPSILON;
 
 pub struct Ton {
     /// Probability of moving further in a straight line
-    #[allow(dead_code)]
     pub p_straight: f32,
     /// Probability of moving further in a piecewise approximated
     /// parabolic trajectory
-    #[allow(dead_code)]
     pub p_parabolic: f32,
     /// Probability of moving tangently
-    #[allow(dead_code)]
     pub p_flow: f32,
     /// Determines the radius around a ton where it interacts with surface elements.
     pub interaction_radius: f32,

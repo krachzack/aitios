@@ -10,6 +10,7 @@ use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
 use ::geom::scene::{Scene, Triangle};
 use ::geom::octree::Octree;
 use ::geom::vtx::Position;
+use ::geom::spatial::Spatial;
 
 use ::cgmath::Vector3;
 use ::cgmath::prelude::*;
@@ -108,6 +109,57 @@ impl Simulation {
         self.dump_hit_map();
     }
 
+    fn interact(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+        let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
+
+        if interacting_surfel_idxs.is_empty() {
+            warn!("Ton intersected geometry but did not interact with any surfels, terminating early");
+            return;
+        }
+
+        let mut rng = rand::thread_rng();
+        let random : f32 = rng.gen();
+
+        if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+            // If not settled yet, pick up some material
+
+            // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
+            Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
+
+            for surfel_idx in &interacting_surfel_idxs {
+                let interacting_surfel = &mut surface.samples[*surfel_idx];
+
+                // FIXME should only settled tons transport material? The fur simulation implements it that way
+                Self::transport_material_to_ton(interacting_surfel, ton, ton_to_surface_interaction_weight);
+            }
+        }
+
+        if random < ton.p_straight {
+            let random_on_unit_sphere = Vector3::new(
+                rng.next_f32(),
+                rng.next_f32(),
+                rng.next_f32()
+            ).normalize();
+            let normal = surface.samples[interacting_surfel_idxs[0]].normal;
+            let outgoing_direction = (random_on_unit_sphere + normal).normalize();
+
+            // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
+            //let reflection_direction = normal;
+            Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction, ton_to_surface_interaction_weight);
+        } else if random < (ton.p_straight + ton.p_parabolic) {
+            Self::trace_parabolic(surface, octree, ton, hit_tri, intersection_point, ton_to_surface_interaction_weight);
+        } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+            Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, incoming_direction, ton_to_surface_interaction_weight);
+        } else {
+            for surfel_idx in &interacting_surfel_idxs {
+                let interacting_surfel = &mut surface.samples[*surfel_idx];
+
+                // FIXME should only settled tons transport material? The fur simulation implements it that way
+                Self::transport_material_to_surf(ton, interacting_surfel, ton_to_surface_interaction_weight);
+            }
+        }
+    }
+
     fn trace_particles(&mut self) {
         info!("Building octree...  ");
         let before = Instant::now();
@@ -129,79 +181,11 @@ impl Simulation {
     fn trace_straight(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, origin: Vector3<f32>, direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
         if let Some((hit_tri, param)) = octree.ray_intersection_target_and_parameter(origin, direction) {
             let intersection_point = origin + direction * param;
-            let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
-
-            if interacting_surfel_idxs.is_empty() {
-                warn!("Ton intersected geometry but did not interact with any surfels, terminating early");
-                return;
-            }
-
-            /*for surfel_idx in &interacting_surfel_idxs {
-                let interacting_surfel = &mut surface.samples[*surfel_idx];
-
-                // FIXME should only settled tons transport material? The fur simulation implements it that way
-                Self::transport_material(ton, interacting_surfel, ton_to_surface_interaction_weight);
-            }*/
-
-            // TODO trace the particle further
-            let mut rng = rand::thread_rng();
-            let mut random : f32 = rng.gen();
-
-            if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
-                // If not settled yet, pick up some material
-
-                // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
-                Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
-
-                for surfel_idx in &interacting_surfel_idxs {
-                    let interacting_surfel = &mut surface.samples[*surfel_idx];
-
-                    // FIXME should only settled tons transport material? The fur simulation implements it that way
-                    Self::transport_material_to_ton(interacting_surfel, ton, ton_to_surface_interaction_weight);
-                }
-            }
-
-            if random < ton.p_straight {
-                let random_on_unit_sphere = Vector3::new(
-                    rng.next_f32(),
-                    rng.next_f32(),
-                    rng.next_f32()
-                ).normalize();
-                let normal = surface.samples[interacting_surfel_idxs[0]].normal;
-                let outgoing_direction = (random_on_unit_sphere + normal).normalize();
-
-                // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
-                //let reflection_direction = normal;
-                Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction, ton_to_surface_interaction_weight);
-            } else if random < (ton.p_straight + ton.p_parabolic) {
-                // TODO parabolic
-            } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
-                Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
-            } else {
-                for surfel_idx in &interacting_surfel_idxs {
-                    let interacting_surfel = &mut surface.samples[*surfel_idx];
-
-                    // FIXME should only settled tons transport material? The fur simulation implements it that way
-                    Self::transport_material_to_surf(ton, interacting_surfel, ton_to_surface_interaction_weight);
-                }
-            }
+            Self::interact(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
         }
     }
 
     fn trace_flow(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
-        /*let world_to_tangent = hit_tri.world_to_tangent_matrix();
-        let tangent_to_world = world_to_tangent.invert().expect("Expected world to tangent matrix to be invertible");
-
-        let tangent_direction = world_to_tangent * incoming_direction;
-        let tangent_direction = tangent_direction.truncate().extend(0.0).normalize(); // FIXME After truncate it might be a zero vector
-
-        let flow_direction_tangent_space = tangent_direction.truncate().extend(-3.0).normalize();
-        let flow_direction = tangent_to_world * flow_direction_tangent_space;
-
-        let flow_origin = intersection_point + hit_tri.normal() * 0.001;
-
-        Self::trace_straight(surface, octree, ton, flow_origin, flow_direction, ton_to_surface_interaction_weight);*/
-
         let normal = hit_tri.normal();
 
         let origin_offset_mag = 0.002; // both affect the distance of a flow event
@@ -220,6 +204,41 @@ impl Simulation {
         let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
 
         Self::trace_straight(surface, octree, ton, new_origin, new_direction, ton_to_surface_interaction_weight);
+    }
+
+    fn trace_parabolic(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>, ton_to_surface_interaction_weight: f32) {
+        let mut rng = rand::thread_rng();
+        let random_on_unit_sphere = Vector3::new(
+                rng.next_f32(),
+                rng.next_f32(),
+                rng.next_f32()
+            ).normalize();
+
+        let takeoff_velocity_mag = 9.81 / 2.0;
+        let timestep = 1.0 / 30.0;
+        let gravity_acceleration = Vector3::new(0.0, -9.81, 0.0);
+        // REVIEW regarding surface as diffuse, could also reflect on the normal
+        let normal = hit_tri.normal();
+        let mut velocity = takeoff_velocity_mag * (random_on_unit_sphere + normal).normalize();
+        let mut position = intersection_point + normal * 0.0000001;
+        let scene_bounds = octree.bounds();
+
+        while scene_bounds.is_point_inside(position) {
+            velocity += gravity_acceleration * timestep;
+
+            let spatial_delta = velocity * timestep;
+            let dist = spatial_delta.magnitude();
+            let direction = spatial_delta / dist;
+
+            if let Some((hit_tri, t)) = octree.line_segment_intersection_target_and_parameter(position, direction, dist) {
+                let intersection_point = position + t * direction;
+                Self::interact(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
+                return;
+            } else {
+                // No intersection, safe to move without penetrating objects
+                position += velocity * timestep;
+            }
+        }
     }
 
     fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {

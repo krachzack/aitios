@@ -199,7 +199,7 @@ impl<T> Octree<T>
     }
 
     /// Like a ray intersection but with limited range for approximating parabolas
-    fn line_segment_intersection_target_and_parameter(&self, origin: Vector3<f32>, direction: Vector3<f32>, range: f32) -> Option<(&T, f32)> {
+    pub fn line_segment_intersection_target_and_parameter(&self, origin: Vector3<f32>, direction: Vector3<f32>, range: f32) -> Option<(&T, f32)> {
         let mut t_min = None;
 
         let bounds_intersection_param = self.bounds.ray_intersection_parameter(origin, direction);
