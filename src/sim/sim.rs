@@ -128,9 +128,7 @@ impl Simulation {
 
             for surfel_idx in &interacting_surfel_idxs {
                 let interacting_surfel = &mut surface.samples[*surfel_idx];
-
-                // FIXME should only settled tons transport material? The fur simulation implements it that way
-                Self::transport_material_to_ton(interacting_surfel, ton, ton_to_surface_interaction_weight);
+                Self::transport_material_to_ton(interacting_surfel, ton);
             }
         }
 
@@ -214,8 +212,8 @@ impl Simulation {
                 rng.next_f32()
             ).normalize();
 
-        let takeoff_velocity_mag = 9.81 / 2.0;
-        let timestep = 1.0 / 30.0;
+        let takeoff_velocity_mag = 9.81 / 8.0;
+        let timestep = 1.0 / 3.0; // 0.333333 seconds, more is more exact but slower
         let gravity_acceleration = Vector3::new(0.0, -9.81, 0.0);
         // REVIEW regarding surface as diffuse, could also reflect on the normal
         let normal = hit_tri.normal();
@@ -235,7 +233,7 @@ impl Simulation {
                 Self::interact(surface, octree, ton, hit_tri, intersection_point, direction, ton_to_surface_interaction_weight);
                 return;
             } else {
-                // No intersection, safe to move without penetrating objects
+                // No intersection, safe to move particle without penetrating objects
                 position += velocity * timestep;
             }
         }
@@ -243,6 +241,7 @@ impl Simulation {
 
     fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel, ton_to_surface_interaction_weight: f32) {
         assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+
         let material_transports = interacting_surfel.substances
             .iter_mut()
             .zip(
@@ -254,16 +253,19 @@ impl Simulation {
         }
     }
 
-    fn transport_material_to_ton(interacting_surfel: &mut Surfel, ton: &mut Ton, surface_to_ton_interaction_weight: f32) {
+    fn transport_material_to_ton(interacting_surfel: &mut Surfel, ton: &mut Ton) {
         assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
-        let material_transports = ton.substances
-            .iter_mut()
+        let material_transports = ton.pickup_rates.iter()
             .zip(
-                interacting_surfel.substances.iter_mut()
+                ton.substances
+                    .iter_mut()
+                    .zip(
+                        interacting_surfel.substances.iter_mut()
+                    )
             );
 
-        for (ref mut ton_material, ref mut surfel_material) in material_transports {
-            let transport_amount = surface_to_ton_interaction_weight * **surfel_material;
+        for (ref pickup_rate, (ref mut ton_material, ref mut surfel_material)) in material_transports {
+            let transport_amount = *pickup_rate * **surfel_material;
 
             **surfel_material -= transport_amount;
             **ton_material += transport_amount;

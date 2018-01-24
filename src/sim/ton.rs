@@ -19,7 +19,9 @@ pub struct Ton {
     /// Determines the radius around a ton where it interacts with surface elements.
     pub interaction_radius: f32,
     /// Amount of substances currently being carried by this ton
-    pub substances: Vec<f32>
+    pub substances: Vec<f32>,
+    /// Factor by which the gammaton picks up material from surfels
+    pub pickup_rates: Vec<f32>
 }
 
 // TODO the sampling should be stratified, e.g. by subdividing the possible directions into patches and ensuring every one gets its turn
@@ -51,7 +53,8 @@ pub struct TonSource {
     interaction_radius: f32,
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
-    emission_count: u32
+    emission_count: u32,
+    pickup_rates: Vec<f32>
 }
 
 pub struct TonSourceBuilder {
@@ -67,6 +70,7 @@ pub struct TonSourceBuilder {
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
     emission_count: u32,
+    pickup_rates: Vec<f32>,
     interaction_radius: f32
 }
 
@@ -78,6 +82,7 @@ impl TonSource {
         let p_flow = self.p_flow;
         let interaction_radius = self.interaction_radius;
         let substances = self.substances.clone();
+        let pickup_rates = self.pickup_rates.clone();
         //let shape = self.shape.clone();
 
         let emissions = (0..self.emission_count).map(
@@ -113,7 +118,8 @@ impl TonSource {
                         p_parabolic,
                         p_flow,
                         interaction_radius,
-                        substances: substances.clone()
+                        substances: substances.clone(),
+                        pickup_rates: pickup_rates.clone()
                     },
                     origin,
                     direction
@@ -148,7 +154,8 @@ impl TonSourceBuilder {
             substances: Vec::new(),
             shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) },
             emission_count: 10000,
-            interaction_radius: 0.1
+            interaction_radius: 0.1,
+            pickup_rates: Vec::new()
         }
     }
 
@@ -207,7 +214,14 @@ impl TonSourceBuilder {
         self
     }
 
+    pub fn pickup_rates<R : IntoIterator<Item = f32>> (mut self, pickup_rates: R) -> TonSourceBuilder {
+        self.pickup_rates = pickup_rates.into_iter().collect();
+        self
+    }
+
     pub fn build(self) -> TonSource {
+        assert_eq!(self.pickup_rates.len(), self.substances.len());
+
         TonSource {
             shape: self.shape,
             p_straight: self.p_straight,
@@ -215,7 +229,8 @@ impl TonSourceBuilder {
             p_flow: self.p_flow,
             interaction_radius: self.interaction_radius,
             substances: self.substances,
-            emission_count: self.emission_count
+            emission_count: self.emission_count,
+            pickup_rates: self.pickup_rates
         }
     }
 }

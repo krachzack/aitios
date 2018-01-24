@@ -53,6 +53,7 @@ fn buddha_room_bronze_test() {
                 .p_flow(0.0)
                 .interaction_radius(0.05)
                 .substances(&vec![1.0])
+                .pickup_rates(vec![0.02])
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/onto-belly.obj")
                 .emission_count(100000)
         })
