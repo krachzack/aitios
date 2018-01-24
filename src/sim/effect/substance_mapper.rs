@@ -46,6 +46,7 @@ pub enum Sampling {
     /// Draws the triangles into UV space, the float scales up the triangles a little.
     /// When drawing, world positions are interpolated from vertex data, looked up
     /// in the surfel kd tree and filtered
+    #[allow(dead_code)]
     Rasterization(f32)
 }
 

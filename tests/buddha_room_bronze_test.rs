@@ -71,11 +71,12 @@ fn buddha_room_bronze_test() {
             1024
         )
         .add_effect_density_map()
-        .add_effect_blend(
+        .add_effect_ramp()
+        /*.add_effect_blend(
             vec![String::from("bronze"), String::from("stone"), String::from("iron")],
             "test-scenes/buddha-scene-iron-concrete/",
             "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
-        )
+        )*/
         /*.add_effect_blend(
             0,
             "stone",

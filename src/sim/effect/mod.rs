@@ -1,4 +1,5 @@
 mod blend;
+mod ramp;
 mod scene;
 mod substance_color;
 mod substance_map_material;
@@ -6,6 +7,7 @@ mod substance_map;
 mod substance_mapper;
 
 pub use self::blend::Blend;
+pub use self::ramp::{Ramp, RampSegment};
 pub use self::scene::SceneEffect;
 pub use self::substance_color::SubstanceColorEffect;
 pub use self::substance_mapper::SubstanceMapper;

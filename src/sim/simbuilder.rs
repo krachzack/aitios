@@ -16,9 +16,11 @@ use ::cgmath::Vector4;
 use ::cgmath::Vector3;
 use ::cgmath::prelude::*;
 
+use ::image;
+
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect, Blend};
+use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect, Blend, Ramp, RampSegment};
 
 /// Builds a simulation according to provided parameters and closures.
 ///
@@ -217,6 +219,21 @@ impl SimulationBuilder {
                 )
             )
         );
+
+        self
+    }
+
+    pub fn add_effect_ramp(mut self) -> SimulationBuilder {
+        let material_names = vec![String::from("bronze"), String::from("stone"), String::from("iron")];
+        let segments = vec![
+            RampSegment::new(0.0, 0.1, None, None),
+            RampSegment::new(0.1, 0.25, None, Some(image::open("test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg").unwrap())),
+            RampSegment::new(0.25, 1.0, Some(image::open("test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg").unwrap()), Some(image::open("test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg").unwrap()))
+        ];
+
+        let ramp = Box::new(Ramp::new(material_names, PathBuf::from("test-scenes/buddha-scene-iron-concrete/"), segments));
+
+        self.effects.push(ramp);
 
         self
     }

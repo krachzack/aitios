@@ -11,6 +11,7 @@ pub trait Rasterize {
         where F : FnMut(usize, usize);
 
     /// Renders a thing already transfomed into image space into the given image buffer
+    /// The y axis is drawn flipped
     fn rasterize_to_image<P, C, F>(&self, buf: &mut ImageBuffer<P, C>, shader_fn: F)
         where P: Pixel + 'static,
             C: Deref<Target = [P::Subpixel]> + DerefMut,
@@ -19,7 +20,7 @@ pub trait Rasterize {
         let width = buf.width() as usize;
         let height = buf.height() as usize;
         self.rasterize(
-            buf.width() as usize, buf.height() as usize,
+            width, height,
             |x, y| buf.put_pixel(x as u32, (height - 1 - y) as u32, shader_fn(x, y))
         )
     }
