@@ -2,6 +2,8 @@ use std::f32::{INFINITY, NEG_INFINITY};
 
 use ::cgmath::Vector3;
 
+use super::intersect::IntersectRay;
+
 /// An axis-aligned bounding box in 3D
 #[derive(Debug, Copy, Clone)]
 pub struct Aabb {
@@ -147,6 +149,26 @@ impl Aabb {
         }
 
         Some((tmin, tmax))
+    }
+}
+
+impl IntersectRay for Aabb {
+    /// Finds the closest value for t in the ray equation ray(t) = ray_origin + t * ray_direction
+    /// for the called object or None if no intersection
+    fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
+        if let Some((tmin, tmax)) = self.line_intersection_min_max_parameters(ray_origin, ray_direction) {
+            if tmin >= 0.0 {
+                Some(tmin)
+            } else if tmax >= 0.0 {
+                // tmin negative, tmax positive, origin is inside AABB, closest t is zero
+                Some(0.0)
+            } else {
+                // tmin and tmax are negative, intersection is in opposite direction and does not count
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 

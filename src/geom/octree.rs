@@ -162,13 +162,13 @@ impl<T> Octree<T>
     where T : Spatial + IntersectRay
 {
     pub fn ray_intersection_target_and_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<(&T, f32)> {
-
         let mut t_min = None;
 
         if !self.bounds.intersects_ray(ray_origin, ray_direction) {
             return None;
         }
 
+        // Try intersecting with data in this node
         for data in &self.data {
             if let Some(t) = data.ray_intersection_parameter(ray_origin, ray_direction) {
                 if let Some((min_data, min_param)) = t_min.take() {
@@ -183,9 +183,57 @@ impl<T> Octree<T>
             }
         }
 
+        // Then, try children
         for child in &self.children {
             if let &Some(ref child) = child {
                 if let Some((data, t)) = child.ray_intersection_target_and_parameter(ray_origin, ray_direction) {
+                    t_min = Some(match t_min {
+                        Some((min_data, t_min)) => if t < t_min { (data, t) } else { (min_data, t_min) },
+                        None => (data, t)
+                    });
+                }
+            }
+        }
+
+        t_min
+    }
+
+    /// Like a ray intersection but with limited range for approximating parabolas
+    fn line_segment_intersection_target_and_parameter(&self, origin: Vector3<f32>, direction: Vector3<f32>, range: f32) -> Option<(&T, f32)> {
+        let mut t_min = None;
+
+        let bounds_intersection_param = self.bounds.ray_intersection_parameter(origin, direction);
+
+        // Assuming direction is normalized, t should be the distance to the intersection point
+        // Prune if bounding box is out of range or does not intersect
+        if let Some(t) = bounds_intersection_param {
+            if t > range {
+                return None;
+            }
+        } else {
+            return None;
+        }
+
+        for data in &self.data {
+            if let Some(t) = data.ray_intersection_parameter(origin, direction) {
+                // Ignore out of range hits
+                if t <= range {
+                    if let Some((min_data, min_param)) = t_min.take() {
+                        t_min = Some(if t < min_param {
+                            (data, t)
+                        } else {
+                            (min_data, min_param)
+                        });
+                    } else {
+                        t_min = Some((data, t));
+                    }
+                }
+            }
+        }
+
+        for child in &self.children {
+            if let &Some(ref child) = child {
+                if let Some((data, t)) = child.line_segment_intersection_target_and_parameter(origin, direction, range) {
                     t_min = Some(match t_min {
                         Some((min_data, t_min)) => if t < t_min { (data, t) } else { (min_data, t_min) },
                         None => (data, t)
@@ -220,7 +268,6 @@ impl<T> IntersectRay for Octree<T>
     where T : Spatial + IntersectRay
 {
     fn ray_intersection_parameter(&self, ray_origin: Vector3<f32>, ray_direction: Vector3<f32>) -> Option<f32> {
-
         let mut t_min = None;
 
         if !self.bounds.intersects_ray(ray_origin, ray_direction) {
@@ -251,6 +298,14 @@ impl<T> IntersectRay for Octree<T>
     }
 }
 
+impl<T> Spatial for Octree<T>
+    where T : Spatial
+{
+    fn bounds(&self) -> Aabb {
+        self.bounds
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -258,8 +313,7 @@ mod test {
     use ::cgmath::Vector3;
     use super::super::scene::{Scene, Triangle};
 
-    #[test]
-    fn test_subdivision() {
+    fn make_example_aabb_tree() -> Octree<Aabb> {
         let whole_world = Aabb {
             min: Vector3::new(-10.0, -10.0, -10.0),
             max: Vector3::new(10.0, 10.0, 10.0)
@@ -285,13 +339,52 @@ mod test {
             max: Vector3::new(5.1, 5.1, 5.1),
         };
 
-        let tree : Octree<Aabb> = vec![
+        vec![
             whole_world,
             around_origin,
             left_top_front1,
             left_top_front2,
             left_top_front3
-        ].into_iter().collect();
+        ].into_iter().collect()
+    }
+
+    fn make_example_aabb_tree_nonoverlapping() -> Octree<Aabb> {
+        let whole_world = Aabb {
+            min: Vector3::new(-10.0, -10.0, -10.0),
+            max: Vector3::new(10.0, 10.0, 10.0)
+        };
+
+        let around_origin = Aabb {
+            min: Vector3::new(-0.1, -0.1, -0.1),
+            max: Vector3::new(0.1, 0.1, 0.1)
+        };
+
+        let left_top_front1 = Aabb {
+            min: Vector3::new(4.9, 4.9, 4.9),
+            max: Vector3::new(5.1, 5.1, 5.1),
+        };
+
+        let left_top_front2 = Aabb {
+            min: Vector3::new(5.9, 5.9, 5.9),
+            max: Vector3::new(6.1, 6.1, 6.1),
+        };
+
+        let left_top_front3 = Aabb {
+            min: Vector3::new(6.9, 6.9, 6.9),
+            max: Vector3::new(7.1, 7.1, 7.1),
+        };
+
+        vec![
+            around_origin,
+            left_top_front1,
+            left_top_front2,
+            left_top_front3
+        ].into_iter().collect()
+    }
+
+    #[test]
+    fn test_subdivision() {
+        let tree = make_example_aabb_tree();
 
         assert_eq!(tree.depth(), 2);
         assert_eq!(tree.entity_count(), 5);
@@ -339,5 +432,20 @@ mod test {
         );
 
         assert!(tree.depth() >= 3, "The tree should be at least 3 levels deep, but was {}", tree.depth());
+    }
+
+    #[test]
+    fn test_line_segment_intersection() {
+        let tree = make_example_aabb_tree_nonoverlapping();
+
+        let intersection = tree.line_segment_intersection_target_and_parameter(Vector3::new(0.0, 10.0, 0.0), Vector3::new(0.0, -1.0, 0.0), 10.0);
+
+        assert!(intersection.is_some());
+        if let Some((ref target, ref parameter)) = intersection {
+            assert_eq!(*parameter, 9.9, "Expected to hit the AABB centered around the origin, instead hit {:?}", target);
+        }
+
+        let intersection = tree.line_segment_intersection_target_and_parameter(Vector3::new(0.0, 10.0, 0.0), Vector3::new(0.0, -1.0, 0.0), 9.8);
+        assert!(intersection.is_none());
     }
 }
