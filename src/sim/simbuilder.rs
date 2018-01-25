@@ -3,6 +3,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::io;
 use std::path::PathBuf;
+use std::iter;
 
 use ::geom::surf::{Surface, SurfaceBuilder};
 use ::geom::scene::Scene;
@@ -20,7 +21,7 @@ use ::image;
 
 use super::sim::Simulation;
 use super::ton::{TonSourceBuilder, TonSource};
-use super::effect::{SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect, Blend, Ramp, RampSegment};
+use super::effect::{Effect, SubstanceMapper, Sampling, SubstanceColorEffect, SubstanceMapMaterialEffect, SurfelRule, Blend, Ramp, RampSegment};
 
 /// Builds a simulation according to provided parameters and closures.
 ///
@@ -62,7 +63,8 @@ pub struct SimulationBuilder {
     surface: Option<Surface>,
     iterations: u32,
     sources: Vec<TonSource>,
-    effects: Vec<Box<SubstanceMapMaterialEffect>>,
+    effects: Vec<Box<Effect>>,
+    substance_map_effects: Vec<Box<SubstanceMapMaterialEffect>>,
     scene_sinks: Vec<Box<SceneSink>>,
     hit_map_path: Option<PathBuf>,
     surfel_obj_path: Option<PathBuf>,
@@ -82,6 +84,7 @@ impl SimulationBuilder {
             iterations: 1,
             sources: Vec::new(),
             effects: Vec::new(),
+            substance_map_effects: Vec::new(),
             scene_sinks: Vec::new(),
             hit_map_path: None,
             surfel_obj_path: None,
@@ -179,7 +182,7 @@ impl SimulationBuilder {
     }
 
     /*pub fn add_effect_blend(mut self, substance_idx: usize, subject_material_name: &str, subject_material_map: &str, blend_towards_tex_file: &str, output_directory: &str) -> SimulationBuilder {
-        self.effects.push(
+        self.substance_map_effects.push(
             Box::new(
                 Blend::new(substance_idx, &self.scene_directory, subject_material_name, subject_material_map, blend_towards_tex_file, &Path::new(output_directory))
             )
@@ -201,8 +204,25 @@ impl SimulationBuilder {
         self
     }*/
 
-    pub fn add_effect_density_map(mut self) -> SimulationBuilder {
+    /// Adds a new surfel rule that gets performed before creating substance maps for surfels of all materials
+    pub fn add_global_surfel_rule(mut self, write_substance_idx: usize, read_substance_idx: usize, rate: f32) -> SimulationBuilder {
         self.effects.push(
+            Box::new(SurfelRule::new(write_substance_idx, read_substance_idx, rate, iter::empty::<String>()))
+        );
+
+        self
+    }
+
+    pub fn add_material_surfel_rule(mut self, applicable_material: &str, write_substance_idx: usize, read_substance_idx: usize, rate: f32) -> SimulationBuilder {
+        self.effects.push(
+            Box::new(SurfelRule::new(write_substance_idx, read_substance_idx, rate, iter::once(applicable_material)))
+        );
+
+        self
+    }
+
+    pub fn add_effect_density_map(mut self) -> SimulationBuilder {
+        self.substance_map_effects.push(
             Box::new(
                 SubstanceColorEffect::new(
                     Vector4::new((255.0 / 255.0), (255.0 / 255.0), (255.0 / 255.0), 1.0), //Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
@@ -225,7 +245,7 @@ impl SimulationBuilder {
 
         let ramp = Box::new(Ramp::new(material_names, PathBuf::from("test-scenes/buddha-scene-iron-concrete/"), segments));
 
-        self.effects.push(ramp);
+        self.substance_map_effects.push(ramp);
 
         self
     }
@@ -233,7 +253,7 @@ impl SimulationBuilder {
     pub fn add_effect_blend<P>(mut self, target_material_names: Vec<String>, texture_base_path: P, blend_target_image: P) -> SimulationBuilder
         where P : Into<PathBuf>
     {
-        self.effects.push(
+        self.substance_map_effects.push(
             Box::new(
                 Blend::new(target_material_names, texture_base_path, &blend_target_image.into())
             )
@@ -253,9 +273,13 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn build(self) -> Simulation {
+    pub fn build(mut self) -> Simulation {
         let substance_mapper = SubstanceMapper::new(
-            self.substance_idx, self.substance_map_sampling, self.substance_map_width, self.substance_map_height, self.effects
+            self.substance_idx, self.substance_map_sampling, self.substance_map_width, self.substance_map_height, self.substance_map_effects
+        );
+
+        self.effects.push(
+            Box::new(substance_mapper)
         );
 
         Simulation::new(
@@ -263,7 +287,7 @@ impl SimulationBuilder {
             self.surface.unwrap(),
             self.iterations,
             self.sources,
-            vec![ Box::new(substance_mapper) ],
+            self.effects,
             self.scene_sinks,
             self.output_path.unwrap(),
             self.hit_map_path

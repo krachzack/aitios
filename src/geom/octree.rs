@@ -349,11 +349,6 @@ mod test {
     }
 
     fn make_example_aabb_tree_nonoverlapping() -> Octree<Aabb> {
-        let whole_world = Aabb {
-            min: Vector3::new(-10.0, -10.0, -10.0),
-            max: Vector3::new(10.0, 10.0, 10.0)
-        };
-
         let around_origin = Aabb {
             min: Vector3::new(-0.1, -0.1, -0.1),
             max: Vector3::new(0.1, 0.1, 0.1)

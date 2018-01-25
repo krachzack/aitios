@@ -18,7 +18,7 @@ use ::cgmath::prelude::*;
 use ::sink::SceneSink;
 
 use super::ton::{Ton, TonSource};
-use super::effect::SceneEffect;
+use super::effect::Effect;
 
 use ::rand;
 use ::rand::Rng;
@@ -36,8 +36,8 @@ pub struct Simulation {
     /// Ton sources that will emit particles at the start of each iteration
     sources: Vec<TonSource>,
     /// Effects that will be invoked at the end of each iteration
-    scene_effects: Vec<Box<SceneEffect>>,
-    /// Scene sinks that will be invoked after the completion of the last iteration to serialize
+    effects: Vec<Box<Effect>>,
+    /// Scene sinks that will be invoked after the completion of an iteration to serialize
     /// scene or materials.
     scene_sinks: Vec<Box<SceneSink>>,
     /// Base path for synthesized output files
@@ -54,7 +54,7 @@ impl Simulation {
         surface: Surface,
         iterations: u32,
         sources: Vec<TonSource>,
-        scene_effects: Vec<Box<SceneEffect>>,
+        effects: Vec<Box<Effect>>,
         scene_sinks: Vec<Box<SceneSink>>,
         output_path: PathBuf,
         hit_map_path: Option<PathBuf>) -> Simulation
@@ -64,7 +64,7 @@ impl Simulation {
             surface,
             iterations,
             sources,
-            scene_effects,
+            effects,
             scene_sinks,
             output_path,
             hit_map_path
@@ -285,8 +285,8 @@ impl Simulation {
     }
 
     fn perform_iteration_effects(&mut self) {
-        for effect in &self.scene_effects {
-            effect.perform_after_iteration(&mut self.scene, &self.surface, &self.output_path);
+        for effect in &self.effects {
+            effect.perform(&mut self.scene, &mut self.surface, &self.output_path);
         }
     }
 

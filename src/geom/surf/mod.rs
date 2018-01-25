@@ -31,13 +31,10 @@ pub struct Surfel {
     /// Index of the entity in the scene that the triangle that this surfel was generated from belongs to
     pub entity_idx: usize,
     /// Deterioration rate of the probability of a gammaton moving further in a straight line
-    #[allow(dead_code)]
     pub delta_straight: f32,
     /// Deterioration rate of the probability of a gammaton moving in a piecewise approximated parabolic path
-    #[allow(dead_code)]
     pub delta_parabolic: f32,
     /// Deterioration rate of the probability of a gammaton flowing in a tangent direction
-    #[allow(dead_code)]
     pub delta_flow: f32,
     /// Holds the amount of substances as numbers in the interval 0..1
     pub substances: Vec<f32>,

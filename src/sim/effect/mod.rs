@@ -1,18 +1,20 @@
 mod blend;
+mod effect;
 mod ramp;
-mod scene;
 mod substance_color;
 mod substance_map_material;
 mod substance_map;
 mod substance_mapper;
+mod surfel;
 
 pub use self::blend::Blend;
+pub use self::effect::Effect;
 pub use self::ramp::{Ramp, RampSegment};
-pub use self::scene::SceneEffect;
 pub use self::substance_color::SubstanceColorEffect;
 pub use self::substance_mapper::SubstanceMapper;
 pub use self::substance_mapper::Sampling;
 pub use self::substance_map_material::SubstanceMapMaterialEffect;
+pub use self::surfel::SurfelRule;
 
 /*use std::fs::File;
 use std::path::{Path, PathBuf};

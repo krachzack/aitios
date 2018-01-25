@@ -1,4 +1,4 @@
-use super::scene::SceneEffect;
+use super::Effect;
 use super::substance_map::SubstanceMap;
 use super::substance_map_material::SubstanceMapMaterialEffect;
 
@@ -50,8 +50,8 @@ pub enum Sampling {
     Rasterization(f32)
 }
 
-impl SceneEffect for SubstanceMapper {
-    fn perform_after_iteration(&self, scene: &mut Scene, surf: &Surface, base_output_prefix: &Path) {
+impl Effect for SubstanceMapper {
+    fn perform(&self, scene: &mut Scene, surf: &mut Surface, base_output_prefix: &Path) {
         let mut base_output_prefix = PathBuf::from(base_output_prefix);
         let base_filename = String::from(base_output_prefix.file_name().unwrap().to_str().unwrap());
 

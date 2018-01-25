@@ -32,8 +32,6 @@ fn buddha_room_bronze_test() {
     surfels_path.push("surfels");
     surfels_path.set_extension("obj");
 
-    // TODO decouple simulation from effects
-
     aitios::SimulationBuilder::new()
         .surfel_obj_path(surfels_path)
         .scene(
@@ -41,45 +39,36 @@ fn buddha_room_bronze_test() {
             |s| {
                 s.min_sample_distance(0.02)
                     .delta_straight(1.0)
-                    .delta_parabolic(1.0/3.0) // up to three bounces
-                    .delta_flow(0.2) // up to 5 flow events per gammaton
-                    .substances(&vec![0.0])
-                    .deposition_rates(vec![0.3])
+                    .delta_parabolic(0.5) // up to two bounces
+                    .delta_flow(0.05) // way more flow events
+                    .substances(&vec![0.0, 0.0])
+                    // Buddha and bunnies get water from gammatons, but no rust
+                    .deposition_rates(vec![0.1, 0.0])
                     .override_material(
                         "stone",
                         |s| {
-                            s.deposition_rates(vec![0.1])
+                            // Floor gets dissolved rust and water
+                            s.deposition_rates(vec![0.1, 0.1])
                         }
                     )
             }
         )
         .add_source(|s| {
             s.p_straight(0.0)
-                .p_parabolic(0.8)
-                .p_flow(0.2)
+                .p_parabolic(0.3)
+                .p_flow(0.7)
                 .interaction_radius(0.05)
-                .substances(&vec![1.0])
-                .pickup_rates(vec![0.1])
+                .substances(&vec![1.0, 0.0])
+                .pickup_rates(vec![0.0, 1.0]) // Gammatons pick up all the rust on contact
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/source-sky.obj")
                 .emission_count(100000)
         })
-        /*.add_environment_source(|s| {
-            s.p_straight(0.0)
-                .p_parabolic(0.0)
-                .p_flow(1.0)
-                .interaction_radius(0.05)
-                .substances(&vec![1.0])
-                .point_shaped(0.0, 3.0, 0.0)
-                .emission_count(100000)
-        })*/
-        /*.add_source(|s| {
-            s.p_straight(1.0)
-                .interaction_radius(0.05)
-                .substances(&vec![1.0])
-                .point_shaped(0.0, 15.0, 0.0)
-                .emission_count(100000)
-        })*/
-        //.substance_map_gather_radius(0.07)
+        // Water should slowly lead to rust accumulation
+        // rust = rust + 0.015 * water
+        .add_material_surfel_rule("iron", 1, 0, 0.015)
+        // And water also evaporates
+        // water = water - 0.5 * water
+        .add_global_surfel_rule(0, 0, -0.5)
         .substance_map_size(
             0,
             1024,
@@ -92,17 +81,6 @@ fn buddha_room_bronze_test() {
             "test-scenes/buddha-scene-iron-concrete/",
             "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
         )
-        /*.add_effect_blend(
-            0,
-            "stone",
-            "map_Kd",
-            "test-scenes/buddha-scene/moss.png",
-            blent_map_output_directory
-        )*/
-        //.add_effect_density_map(256, 256, density_map_output_directory)
-        //.add_effect_density_map(512, 512, density_map_output_directory)
-        //.add_effect_density_map(1024, 1024, density_map_output_directory)
-        //.add_effect_density_map(4096, 4096, density_map_output_directory)
         .add_scene_sink_obj_mtl(obj_file, mtl_file)
         .output_path(directory)
         .hit_map_path(hit_map_path)
