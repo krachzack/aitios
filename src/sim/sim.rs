@@ -222,7 +222,7 @@ impl Simulation {
             if let Some((hit_tri, t)) = octree.line_segment_intersection_target_and_parameter(position, direction, dist) {
                 let intersection_point = position + t * direction;
                 Self::interact(surface, octree, ton, hit_tri, intersection_point, direction);
-                return;
+                break;
             } else {
                 // No intersection, safe to move particle without penetrating objects
                 position += velocity * timestep;

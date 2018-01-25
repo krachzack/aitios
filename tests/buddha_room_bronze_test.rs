@@ -47,30 +47,30 @@ fn buddha_room_bronze_test() {
                     .override_material(
                         "stone",
                         |s| {
-                            // Floor gets dissolved rust and water
-                            s.deposition_rates(vec![0.1, 0.1])
+                            // Floor gets dissolved rust but no water
+                            s.deposition_rates(vec![0.0, 0.5])
                         }
                     )
             }
         )
         .add_source(|s| {
             s.p_straight(0.0)
-                .p_parabolic(0.3)
-                .p_flow(0.7)
+                .p_parabolic(0.2)
+                .p_flow(0.8)
                 .interaction_radius(0.05)
-                .substances(&vec![1.0, 0.0])
-                .pickup_rates(vec![0.0, 1.0]) // Gammatons pick up all the rust on contact
+                .substances(&vec![1.0, 0.0]) // gammatons carry water and no rust
+                .pickup_rates(vec![0.0, 0.5]) // Gammatons pick up all the rust on contact
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/source-sky.obj")
                 .emission_count(100000)
         })
         // Water should slowly lead to rust accumulation
-        // rust = rust + 0.015 * water
-        .add_material_surfel_rule("iron", 1, 0, 0.015)
+        // rust = rust + 0.15 * water
+        .add_material_surfel_rule("bronze", 1, 0, 0.15)
         // And water also evaporates
         // water = water - 0.5 * water
         .add_global_surfel_rule(0, 0, -0.5)
         .substance_map_size(
-            0,
+            1,
             1024,
             1024
         )

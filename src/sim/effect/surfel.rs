@@ -28,8 +28,9 @@ pub struct SurfelRule {
 }
 
 impl SurfelRule {
-    /// Creates a rule for the aging of surfels in isolotation. For example,
-    /// water can evaportate over time, water can lead to more rust, etc.
+    /// Creates a rule for the aging of surfels with no other actor involved than the surfel
+    /// itself. For example, water that got transported from gammatons can evaportate over time,
+    /// water can lead to more rust, etc.
     ///
     /// The last parameter limits the effect to the given material names. An empty thing that can be turned into
     /// an iterator indicates that the rule is applicable to all materials without exception, e.g.
@@ -38,10 +39,10 @@ impl SurfelRule {
     /// use std::iter::empty;
     ///
     /// // Material 0 should drop by 10% for all materials
-    /// let drop_substance_zero = SurfelRule::new(0, 0, -0.1, empty());
+    /// let drop_substance_zero = SurfelRule::new(0, 0, -0.1, empty::<String>());
     ///
     /// // Iron things should accumulate a substance 1 based on substance 0, 10% per iteration
-    /// SurfelRule::new(0, 1, 0.1, [ "iron" ]);
+    /// let accumulate_substance_0_from_1_for_iron_only = SurfelRule::new(0, 1, 0.1, [ "iron" ]);
     /// ```
     pub fn new<M, S>(write_substance_idx: usize, read_substance_idx: usize, rate: f32, applicable_materials: M) -> SurfelRule
         where M : IntoIterator<Item = S>, S : Into<String>
@@ -50,7 +51,7 @@ impl SurfelRule {
         SurfelRule { write_substance_idx, read_substance_idx, rate, applicable_materials }
     }
 
-    fn perform_surfel(&self, surfel: &mut Surfel) {
+    fn age_surfel(&self, surfel: &mut Surfel) {
         let &SurfelRule { write_substance_idx: write, read_substance_idx: read, rate, .. } = self;
 
         surfel.substances[write] = (surfel.substances[write] + rate * surfel.substances[read]).max(0.0);
@@ -95,7 +96,10 @@ impl Effect for SurfelRule {
         let applicable_material_idxs = self.applicable_material_idxs(scene);
 
         surf.samples.iter_mut()
-            .filter(|s| self.is_applicable(scene.entities[s.entity_idx].material_idx, &applicable_material_idxs))
-            .for_each(|s| self.perform_surfel(s))
+            .filter(|s| {
+                let orig_mat_idx = scene.entities[s.entity_idx].original_material_idx;
+                self.is_applicable(orig_mat_idx, &applicable_material_idxs)
+            })
+            .for_each(|s| self.age_surfel(s))
     }
 }
