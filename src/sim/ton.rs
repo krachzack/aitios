@@ -20,6 +20,10 @@ pub struct Ton {
     pub interaction_radius: f32,
     /// Determines the height of a vertical bounce
     pub parabola_height: f32,
+    /// Distance that a flowing gammaton is pulled up, affects flow distance
+    pub flow_upward_offset: f32,
+    /// Higher number means lower flow distance
+    pub flow_downward_pull: f32,
     /// Amount of substances currently being carried by this ton
     pub substances: Vec<f32>,
     /// Factor by which the gammaton picks up material from surfels
@@ -55,6 +59,10 @@ pub struct TonSource {
     interaction_radius: f32,
     /// Determines the height of a vertical bounce
     parabola_height: f32,
+    /// Distance that a flowing gammaton is pulled up, affects flow distance
+    flow_upward_offset: f32,
+    /// Higher number means lower flow distance
+    flow_downward_pull: f32,
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
     emission_count: u32,
@@ -79,6 +87,10 @@ pub struct TonSourceBuilder {
     interaction_radius: f32,
     /// Determines the height of a vertical bounce
     parabola_height: f32,
+    /// Distance that a flowing gammaton is pulled up, affects flow distance
+    flow_upward_offset: f32,
+    /// Higher number means lower flow distance
+    flow_downward_pull: f32,
 }
 
 impl TonSource {
@@ -89,6 +101,8 @@ impl TonSource {
         let p_flow = self.p_flow;
         let interaction_radius = self.interaction_radius;
         let parabola_height = self.parabola_height;
+        let flow_upward_offset = self.flow_upward_offset;
+        let flow_downward_pull = self.flow_downward_pull;
         let substances = self.substances.clone();
         let pickup_rates = self.pickup_rates.clone();
         //let shape = self.shape.clone();
@@ -127,6 +141,8 @@ impl TonSource {
                         p_flow,
                         interaction_radius,
                         parabola_height,
+                        flow_upward_offset,
+                        flow_downward_pull,
                         substances: substances.clone(),
                         pickup_rates: pickup_rates.clone()
                     },
@@ -165,6 +181,8 @@ impl TonSourceBuilder {
             emission_count: 10000,
             interaction_radius: 0.1,
             parabola_height: 0.05,
+            flow_downward_pull: 0.01,
+            flow_upward_offset: 0.002,
             pickup_rates: Vec::new()
         }
     }
@@ -229,6 +247,16 @@ impl TonSourceBuilder {
         self
     }
 
+    pub fn flow_upward_offset(mut self, flow_upward_offset: f32) -> TonSourceBuilder {
+        self.flow_upward_offset = flow_upward_offset;
+        self
+    }
+
+    pub fn flow_downward_pull(mut self, flow_downward_pull: f32) -> TonSourceBuilder {
+        self.flow_downward_pull = flow_downward_pull;
+        self
+    }
+
     pub fn pickup_rates<R : IntoIterator<Item = f32>> (mut self, pickup_rates: R) -> TonSourceBuilder {
         self.pickup_rates = pickup_rates.into_iter().collect();
         self
@@ -244,6 +272,8 @@ impl TonSourceBuilder {
             p_flow: self.p_flow,
             interaction_radius: self.interaction_radius,
             parabola_height: self.parabola_height,
+            flow_upward_offset: self.flow_upward_offset,
+            flow_downward_pull: self.flow_downward_pull,
             substances: self.substances,
             emission_count: self.emission_count,
             pickup_rates: self.pickup_rates
