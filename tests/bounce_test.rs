@@ -1,4 +1,4 @@
-/*extern crate aitios;
+extern crate aitios;
 #[macro_use] extern crate log;
 extern crate simplelog;
 extern crate chrono;
@@ -7,11 +7,11 @@ mod common;
 
 #[cfg_attr(not(feature = "expensive_tests"), ignore)]
 #[test]
-fn buddha_room_bronze_test() {
-    let directory = common::prepare_test_directory("buddha_room_bronze_test");
+fn bounce_test() {
+    let directory = common::prepare_test_directory("bounce-test");
 
-    let obj_file = "buddha-scene-weathered.obj";
-    let mtl_file = "buddha-scene-weathered.mtl";
+    let obj_file = "bounce-test-weathered.obj";
+    let mtl_file = "bounce-test-weathered.mtl";
 
     /*let mut density_map_output_directory = directory.clone();
     density_map_output_directory.push("substance-density-maps");
@@ -41,16 +41,8 @@ fn buddha_room_bronze_test() {
                     .delta_straight(1.0)
                     .delta_parabolic(0.5) // up to two bounces
                     .delta_flow(0.3) // way more flow events
-                    .substances(&vec![0.0, 0.0])
-                    // Buddha and bunnies get water from gammatons, but no rust
-                    .deposition_rates(vec![0.05, 0.0])
-                    /*.override_material(
-                        "stone",
-                        |s| {
-                            // Floor gets dissolved rust but no water
-                            s.deposition_rates(vec![0.0, 0.5])
-                        }
-                    )*/
+                    .substances(&vec![0.0])
+                    .deposition_rates(vec![0.05])
             }
         )
         .add_source(|s| {
@@ -58,25 +50,19 @@ fn buddha_room_bronze_test() {
                 .p_straight(0.0)
                 .p_parabolic(1.0)
                 .p_flow(0.0)
+                .parabola_height(0.05)
                 .interaction_radius(0.05)
-                .substances(&vec![1.0, 0.0]) // gammatons carry water and no rust
-                .pickup_rates(vec![0.4, 0.5]) // Gammatons pick up all the rust on contact
+                .substances(&vec![1.0]) // gammatons carry water
+                .pickup_rates(vec![1.0]) // Gammatons pick up all the rust on contact
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
                 .emission_count(50000)
         })
-        // Water should slowly lead to rust accumulation
-        // rust = rust + 0.15 * water
-        //.add_material_surfel_rule("bronze", 1, 0, 0.15)
-        // And water also evaporates
-        // water = water - 0.5 * water
-        //.add_global_surfel_rule(0, 0, -0.5)
         .substance_map_size(
             0,
-            1024,
-            1024
+            4096,
+            4096
         )
         .add_effect_density_map()
-        //.add_effect_ramp()
         .add_effect_blend(
             vec![String::from("bronze"), String::from("stone"), String::from("iron")],
             "test-scenes/buddha-scene-iron-concrete/",
@@ -88,4 +74,4 @@ fn buddha_room_bronze_test() {
         .iterations(5)
         .build()
         .run();
-}*/
+}

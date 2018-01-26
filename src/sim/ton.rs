@@ -18,6 +18,8 @@ pub struct Ton {
     pub p_flow: f32,
     /// Determines the radius around a ton where it interacts with surface elements.
     pub interaction_radius: f32,
+    /// Determines the height of a vertical bounce
+    pub parabola_height: f32,
     /// Amount of substances currently being carried by this ton
     pub substances: Vec<f32>,
     /// Factor by which the gammaton picks up material from surfels
@@ -51,6 +53,8 @@ pub struct TonSource {
     p_flow: f32,
     /// Determines the radius around a ton where it interacts with surface elements.
     interaction_radius: f32,
+    /// Determines the height of a vertical bounce
+    parabola_height: f32,
     /// Amount of substances initially carried by tons emitted by this source
     substances: Vec<f32>,
     emission_count: u32,
@@ -71,7 +75,10 @@ pub struct TonSourceBuilder {
     substances: Vec<f32>,
     emission_count: u32,
     pickup_rates: Vec<f32>,
-    interaction_radius: f32
+    /// Determines the radius around a ton where it interacts with surface elements.
+    interaction_radius: f32,
+    /// Determines the height of a vertical bounce
+    parabola_height: f32,
 }
 
 impl TonSource {
@@ -81,6 +88,7 @@ impl TonSource {
         let p_parabolic = self.p_parabolic;
         let p_flow = self.p_flow;
         let interaction_radius = self.interaction_radius;
+        let parabola_height = self.parabola_height;
         let substances = self.substances.clone();
         let pickup_rates = self.pickup_rates.clone();
         //let shape = self.shape.clone();
@@ -118,6 +126,7 @@ impl TonSource {
                         p_parabolic,
                         p_flow,
                         interaction_radius,
+                        parabola_height,
                         substances: substances.clone(),
                         pickup_rates: pickup_rates.clone()
                     },
@@ -155,6 +164,7 @@ impl TonSourceBuilder {
             shape: Shape::Point { position: Vector3::new(0.0, 0.0, 0.0) },
             emission_count: 10000,
             interaction_radius: 0.1,
+            parabola_height: 0.05,
             pickup_rates: Vec::new()
         }
     }
@@ -214,6 +224,11 @@ impl TonSourceBuilder {
         self
     }
 
+    pub fn parabola_height(mut self, parabola_height: f32) -> TonSourceBuilder {
+        self.parabola_height = parabola_height;
+        self
+    }
+
     pub fn pickup_rates<R : IntoIterator<Item = f32>> (mut self, pickup_rates: R) -> TonSourceBuilder {
         self.pickup_rates = pickup_rates.into_iter().collect();
         self
@@ -228,6 +243,7 @@ impl TonSourceBuilder {
             p_parabolic: self.p_parabolic,
             p_flow: self.p_flow,
             interaction_radius: self.interaction_radius,
+            parabola_height: self.parabola_height,
             substances: self.substances,
             emission_count: self.emission_count,
             pickup_rates: self.pickup_rates

@@ -558,6 +558,7 @@ mod test {
             Vector3::new(1.0, 1.0, 0.0)
         );
 
+
         assert_eq!(Vector3::new(0.0, 0.0, 1.0), tri.normal());
         assert_eq!((Vector3::new(0.0, -1.0, 0.0) - Vector3::new(-1.0, 1.0, 0.0)).normalize(), tri.tangent());
         assert_eq!(tri.binormal().dot(tri.normal()), 0.0);

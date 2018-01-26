@@ -22,6 +22,7 @@ pub struct Ramp {
 
 enum TextureKind {
     Diffuse, // kd in MTL
+    #[allow(unused)]
     Specular // ks in MTL, metallicity
 }
 

@@ -178,7 +178,7 @@ impl Simulation {
         let normal = hit_tri.normal();
 
         let origin_offset_mag = 0.002; // both affect the distance of a flow event
-        let downward_pull_mag = 0.01;
+        let downward_pull_mag = 0.018;
 
         let new_origin = intersection_point + origin_offset_mag * normal;
         let flow_direction = {
@@ -203,11 +203,16 @@ impl Simulation {
                 rng.next_f32()
             ).normalize();
 
-        let takeoff_velocity_mag = 9.81 / 3.0;
-        let timestep = 1.0 / 5.0; // 0.2 seconds, more is more exact but slower
-        let gravity_acceleration = Vector3::new(0.0, -9.81, 0.0);
+        // Maximum height of a bounce assuming it is straight up and gravity pointing straight down
+        let upward_parabola_height = ton.parabola_height;
+        let gravity_mag = 9.81_f32;
+        let timestep = 1.0 / 30.0; // 0.0333333 seconds, more is more exact but slower
+
+        let gravity_acceleration = Vector3::new(0.0, -gravity_mag, 0.0);
+        let takeoff_velocity_mag = (2.0 * gravity_mag * upward_parabola_height).sqrt();
+
         // REVIEW regarding surface as diffuse, could also reflect on the normal
-        let normal = hit_tri.normal();
+        let normal = hit_tri.interpolate_at(intersection_point, |v| v.normal);
         let mut velocity = takeoff_velocity_mag * (random_on_unit_sphere + normal).normalize();
         let mut position = intersection_point + normal * 0.0000001;
         let scene_bounds = octree.bounds();
@@ -225,7 +230,7 @@ impl Simulation {
                 break;
             } else {
                 // No intersection, safe to move particle without penetrating objects
-                position += velocity * timestep;
+                position += spatial_delta;
             }
         }
     }
@@ -262,7 +267,7 @@ impl Simulation {
             let transport_amount = *pickup_rate * **surfel_material;
 
             **surfel_material -= transport_amount;
-            **ton_material += transport_amount;
+            **ton_material = (**ton_material + transport_amount).min(1.0);
         }
     }
 

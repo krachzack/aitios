@@ -225,8 +225,8 @@ impl SimulationBuilder {
         self.substance_map_effects.push(
             Box::new(
                 SubstanceColorEffect::new(
-                    Vector4::new((255.0 / 255.0), (255.0 / 255.0), (255.0 / 255.0), 1.0), //Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 0
-                    Vector4::new((0.0 / 255.0), (0.0 / 255.0), (0.0 / 255.0), 1.0), //Vector4::new(1.0, 0.2, 0.2, 1.0), // substance = 1
+                    Vector4::new(1.0, 1.0, 1.0, 1.0), // substance = 0
+                    Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 1
                     Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
                 )
             )
