@@ -5,6 +5,7 @@
 use std::fs;
 use std::time::Instant;
 use std::path::PathBuf;
+use std::f32::EPSILON;
 
 use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
 use ::geom::scene::{Scene, Triangle};
@@ -178,7 +179,7 @@ impl Simulation {
         let normal = hit_tri.normal();
 
         let origin_offset_mag = 0.002; // both affect the distance of a flow event
-        let downward_pull_mag = 0.018;
+        let downward_pull_mag = 0.01;
 
         let new_origin = intersection_point + origin_offset_mag * normal;
         let flow_direction = {
@@ -187,12 +188,59 @@ impl Simulation {
                 warn!("Incoming direction for flow is orthogonal, using A edge as flow direction");
                 (hit_tri.vertices[2].position() - hit_tri.vertices[1].position()).normalize()
             } else {
-                dir
+                dir.normalize()
             }
         };
         let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
 
         Self::trace_straight(surface, octree, ton, new_origin, new_direction);
+
+        /*let normal = hit_tri.interpolate_at(intersection_point, |v| v.normal);
+
+        let intersection_point = intersection_point + 0.000001 * normal; // avoid self-intersection
+
+        let upward_epsilon = 0.002;
+        let flow_delta = 0.004; // Distance of a flow in tangential direction, assuming flow on a flat surface
+
+        if let Some((hit_tri, t)) = octree.line_segment_intersection_target_and_parameter(intersection_point, normal, upward_epsilon) {
+            // Small upwards movement already hit something, take it
+            let hit_point = intersection_point + t * normal;
+            Self::interact(surface, octree, ton, hit_tri, hit_point, normal);
+        } else {
+            let flow_dir = hit_tri.project_onto_tangential_plane(incoming_direction);
+            let flow_target = intersection_point + flow_delta * flow_dir;
+
+            let above = intersection_point + normal * upward_epsilon;
+
+            let ray_origin = above + flow_dir * flow_delta * 1.5;
+            let ray_direction = flow_target - ray_origin;
+
+            Self::trace_straight(surface, octree, ton, ray_origin, ray_direction);
+        }*/
+
+
+
+
+        // Tangential distance of flow
+        /*let flow_distance = 0.02;
+
+        let upward_offset = flow_distance * 10.0; // both affect the distance of a flow event
+        let downward_pull_mag = flow_distance / 10.0;
+
+        let flow_direction = flow_distance * {
+            let dir = hit_tri.project_onto_tangential_plane(incoming_direction);
+            if dir.is_zero() {
+                warn!("Incoming direction for flow is orthogonal, using A edge as flow direction");
+                (hit_tri.vertices[2].position() - hit_tri.vertices[1].position()).normalize()
+            } else {
+                dir
+            }
+        };
+
+        let new_origin = intersection_point + upward_offset * normal;
+        let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
+
+        Self::trace_straight(surface, octree, ton, new_origin, new_direction);*/
     }
 
     fn trace_parabolic(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>) {

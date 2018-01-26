@@ -271,7 +271,7 @@ impl<V> Triangle<V>
         if scaled_projected.is_zero() {
             scaled_projected
         } else {
-            scaled_projected.normalize()
+            scaled_projected /*.normalize()*/
         }
     }
 }
