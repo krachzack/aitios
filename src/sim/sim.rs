@@ -249,7 +249,7 @@ impl Simulation {
             );
 
         for (ref deposition_rate, (ref mut surfel_material, &ton_material)) in material_transports {
-            **surfel_material = **surfel_material + *deposition_rate * ton_material;
+            **surfel_material = (**surfel_material + *deposition_rate * ton_material).min(1.0);
         }
     }
 
@@ -268,7 +268,7 @@ impl Simulation {
             let transport_amount = *pickup_rate * **surfel_material;
 
             **surfel_material -= transport_amount;
-            **ton_material = (**ton_material + transport_amount)/*.min(1.0)*/;
+            **ton_material = (**ton_material + transport_amount).min(1.0);
         }
     }
 

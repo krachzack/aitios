@@ -7,12 +7,11 @@ mod common;
 
 #[cfg_attr(not(feature = "expensive_tests"), ignore)]
 #[test]
-/// Tests the behavior of gammatons in flow
-fn flow_test() {
-    let directory = common::prepare_test_directory("flow-test");
+fn mass_conservation_test() {
+    let directory = common::prepare_test_directory("energy-conservation");
 
-    let obj_file = "flow-test-weathered.obj";
-    let mtl_file = "flow-test-weathered.mtl";
+    let obj_file = "energy-conservation.obj";
+    let mtl_file = "energy-conservation.mtl";
 
     let input_path = "test-scenes/buddha-scene-iron-concrete";
     let model_obj_path = format!("{}/buddha-scene-iron-concrete.obj", input_path);
@@ -30,12 +29,12 @@ fn flow_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.02)
+                s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .delta_parabolic(1.0) // up to two bounces
                     .delta_flow(0.2) // way more flow events
                     .substances(&vec![0.0])
-                    .deposition_rates(vec![0.05])
+                    .deposition_rates(vec![1.0])
                     .override_material(
                         "stone",
                         |s| {
@@ -50,19 +49,19 @@ fn flow_test() {
                 .p_straight(0.0)
                 .p_parabolic(0.0)
                 .p_flow(1.0)
-                .interaction_radius(0.05)
+                .interaction_radius(0.06)
                 .parabola_height(0.05)
-                .flow_upward_offset(0.002)
+                .flow_upward_offset(0.02)
                 .flow_downward_pull(0.01)
-                .substances(&vec![1.0])
-                .pickup_rates(vec![0.0])
+                .substances(&vec![0.007])
+                .pickup_rates(vec![0.05])
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
                 .emission_count(200000)
         })
         .substance_map_size(
             0,
-            1024,
-            1024
+            2048,
+            2048
         )
         .add_effect_density_map()
         .add_effect_blend(
