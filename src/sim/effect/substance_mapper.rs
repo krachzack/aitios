@@ -1,6 +1,8 @@
 use super::Effect;
 use super::substance_map::SubstanceMap;
 use super::substance_map_material::SubstanceMapMaterialEffect;
+use super::substance_color::SubstanceColorEffect;
+use super::ramp::{Ramp, RampSegment};
 
 use ::geom::scene::{Scene, Entity};
 use ::geom::surf::Surface;
@@ -8,7 +10,7 @@ use ::geom::tri::Triangle;
 use ::geom::vtx::{Position, Texcoords};
 use ::geom::raster::Rasterize;
 
-use ::cgmath::{Vector2, Vector3};
+use ::cgmath::{Vector2, Vector3, Vector4};
 
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
@@ -17,6 +19,8 @@ use std::f32;
 use std::f32::{NAN, EPSILON, NEG_INFINITY};
 use std::time::Instant;
 use std::path::{Path, PathBuf};
+
+use ::image;
 
 pub struct SubstanceMapper {
     substance_idx: usize,
@@ -449,3 +453,51 @@ impl Position for (Vector3<f32>, Vector2<f32>) {
         Vector3::new(self.1.x, self.1.y, 0.0)
     }
 }
+
+/*pub struct SubstanceMapperBuilder {
+    mapper: SubstanceMapper
+}
+
+impl SubstanceMapperBuilder {
+    pub fn new() -> SubstanceMapperBuilder {
+        SubstanceMapperBuilder {
+            mapper: SubstanceMapper {
+                substance_idx: 0,
+                sampling: Sampling::NearestTriangle,
+                texture_width: 2048,
+                texture_height: 2048,
+                after_effects: Vec::new()
+            }
+        }
+    }
+
+    pub fn substance_idx(mut self, idx: usize) -> SubstanceMapperBuilder {
+        self.mapper.substance_idx = idx;
+        self
+    }
+
+    pub fn resolution(mut self, width: usize, height: usize) -> SubstanceMapperBuilder {
+        self.mapper.texture_width = width;
+        self.mapper.texture_height = height;
+        self
+    }
+
+    pub fn add_density_map(mut self) -> SubstanceMapperBuilder {
+        self.mapper.after_effects.push(
+            Box::new(
+                SubstanceColorEffect::new(
+                    Vector4::new(1.0, 1.0, 1.0, 1.0), // substance = 0
+                    Vector4::new(0.0, 0.0, 0.0, 1.0), // substance = 1
+                    Vector4::new(0.0, 0.0, 1.0, 1.0),  // substance = NaN
+                )
+            )
+        );
+
+        self
+    }
+
+    pub fn build(mut self) -> SubstanceMapper {
+        self.mapper
+    }
+}
+*/
