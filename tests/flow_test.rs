@@ -30,12 +30,12 @@ fn flow_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.02)
+                s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .delta_parabolic(1.0) // up to two bounces
                     .delta_flow(0.2) // way more flow events
                     .substances(&vec![0.0])
-                    .deposition_rates(vec![0.05])
+                    .deposition_rates(vec![1.0])
                     .override_material(
                         "stone",
                         |s| {
@@ -50,12 +50,12 @@ fn flow_test() {
                 .p_straight(0.0)
                 .p_parabolic(0.0)
                 .p_flow(1.0)
-                .interaction_radius(0.05)
+                .interaction_radius(0.1)
                 .parabola_height(0.05)
                 .flow_upward_offset(0.002)
                 .flow_downward_pull(0.01)
-                .substances(&vec![1.0])
-                .pickup_rates(vec![0.0])
+                .substances(&vec![0.5])
+                .pickup_rates(vec![0.05])
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
                 .emission_count(200000)
         })
@@ -64,6 +64,7 @@ fn flow_test() {
             1024,
             1024
         )
+        //.substance_map_rasterize(2.0)
         .add_effect_density_map()
         .add_effect_blend(
             vec![String::from("bronze"), String::from("stone"), String::from("iron")],

@@ -119,10 +119,7 @@ impl Simulation {
             // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
             Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
 
-            for surfel_idx in &interacting_surfel_idxs {
-                let interacting_surfel = &mut surface.samples[*surfel_idx];
-                Self::transport_material_to_ton(interacting_surfel, ton);
-            }
+            Self::transport_material_to_ton(surface, &interacting_surfel_idxs, ton);
         }
 
         if random < ton.p_straight {
@@ -142,12 +139,7 @@ impl Simulation {
         } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
             Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, incoming_direction);
         } else {
-            for surfel_idx in &interacting_surfel_idxs {
-                let interacting_surfel = &mut surface.samples[*surfel_idx];
-
-                // FIXME should only settled tons transport material? The fur simulation implements it that way
-                Self::transport_material_to_surf(ton, interacting_surfel);
-            }
+            Self::transport_material_to_surf(ton, surface, &interacting_surfel_idxs);
         }
     }
 
@@ -236,39 +228,50 @@ impl Simulation {
         }
     }
 
-    fn transport_material_to_surf(ton: &Ton, interacting_surfel: &mut Surfel) {
-        assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+    fn transport_material_to_surf(ton: &Ton, surface: &mut Surface, interacting_surfel_idxs: &Vec<usize>) {
+        for surfel_idx in interacting_surfel_idxs {
+            let interacting_surfel = &mut surface.samples[*surfel_idx];
+            assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
 
-        let material_transports = interacting_surfel.deposition_rates.iter()
-            .zip(
-                interacting_surfel.substances
-                    .iter_mut()
-                    .zip(
-                        ton.substances.iter()
-                    )
-            );
+            let material_transports = interacting_surfel.deposition_rates.iter()
+                .zip(
+                    interacting_surfel.substances
+                        .iter_mut()
+                        .zip(
+                            ton.substances.iter()
+                        )
+                );
 
-        for (ref deposition_rate, (ref mut surfel_material, &ton_material)) in material_transports {
-            **surfel_material = (**surfel_material + *deposition_rate * ton_material).min(1.0);
+            for (ref deposition_rate, (ref mut surfel_material, &ton_material)) in material_transports {
+                // Deposition rate gets equally divided between interacting surfels
+                let deposition_rate = *deposition_rate / (interacting_surfel_idxs.len() as f32);
+                **surfel_material = (**surfel_material + deposition_rate * ton_material).min(1.0);
+            }
         }
     }
 
-    fn transport_material_to_ton(interacting_surfel: &mut Surfel, ton: &mut Ton) {
-        assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
-        let material_transports = ton.pickup_rates.iter()
-            .zip(
-                ton.substances
-                    .iter_mut()
-                    .zip(
-                        interacting_surfel.substances.iter_mut()
-                    )
-            );
+    fn transport_material_to_ton(surface: &mut Surface, interacting_surfel_idxs: &Vec<usize>, ton: &mut Ton) {
+        for surfel_idx in interacting_surfel_idxs {
+            let interacting_surfel = &mut surface.samples[*surfel_idx];
 
-        for (ref pickup_rate, (ref mut ton_material, ref mut surfel_material)) in material_transports {
-            let transport_amount = *pickup_rate * **surfel_material;
+            assert_eq!(interacting_surfel.substances.len(), ton.substances.len());
+            let material_transports = ton.pickup_rates.iter()
+                .zip(
+                    ton.substances
+                        .iter_mut()
+                        .zip(
+                            interacting_surfel.substances.iter_mut()
+                        )
+                );
 
-            **surfel_material -= transport_amount;
-            **ton_material = (**ton_material + transport_amount).min(1.0);
+            for (ref pickup_rate, (ref mut ton_material, ref mut surfel_material)) in material_transports {
+                // pickup rate gets equally distributed between all interacting surfels
+                let pickup_rate = *pickup_rate / (interacting_surfel_idxs.len() as f32);
+                let transport_amount = pickup_rate * **surfel_material;
+
+                **surfel_material -= transport_amount;
+                **ton_material = (**ton_material + transport_amount).min(1.0);
+            }
         }
     }
 
