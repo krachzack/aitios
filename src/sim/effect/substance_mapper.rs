@@ -166,7 +166,7 @@ impl SubstanceMapper {
                 texcoords.2.extend(0.0)
             ).normal();
 
-            if tex_tri_normal.z <= 0.0 {
+            if tex_tri_normal.z > 0.0 {
                 (texcoords, positions)
             } else {
                 // Flip order if would be pointing downwards in uv space
@@ -194,7 +194,11 @@ impl SubstanceMapper {
         if padding > 0.0 {
             let image_center = (1.0 / 3.0) * (image_pos0 + image_pos1 + image_pos2);
 
-            if image_pos0.x < image_center.x {
+            image_pos0 = (image_pos0 - image_center) * padding + image_center;
+            image_pos1 = (image_pos1 - image_center) * padding + image_center;
+            image_pos2 = (image_pos2 - image_center) * padding + image_center;
+
+            /*if image_pos0.x < image_center.x {
                 image_pos0.x -= padding;
             } else if image_pos0.x > image_center.x {
                 image_pos0.x += padding;
@@ -228,7 +232,7 @@ impl SubstanceMapper {
                 image_pos2.y -= padding;
             } else if image_pos2.y > image_center.y {
                 image_pos2.y += padding;
-            }
+            }*/
         }
 
         Triangle::new(
