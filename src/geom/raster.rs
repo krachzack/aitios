@@ -29,6 +29,7 @@ pub trait Rasterize {
 impl<V> Rasterize for Triangle<V>
     where V : Position {
 
+    /// Fills the triangle with a top-left fill convention, similar to OpenGL.
     /// See: http://forum.devmaster.net/t/advanced-rasterization/6145
     #[allow(non_snake_case)]
     fn rasterize<F>(&self, raster_width: usize, raster_height: usize, mut render_pixel_at: F)

@@ -199,6 +199,11 @@ impl SimulationBuilder {
         self
     }
 
+    pub fn substance_map_rasterize(mut self, padding: f32) -> SimulationBuilder {
+        self.substance_map_sampling = Sampling::Rasterization(padding);
+        self
+    }
+
     /*pub fn substance_map_gather_radius(mut self, radius: f32) -> SimulationBuilder {
         self.substance_map_sampling = Sampling::Rasterization(0.0);
         self

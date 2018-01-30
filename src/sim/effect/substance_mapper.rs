@@ -11,6 +11,7 @@ use ::geom::vtx::{Position, Texcoords};
 use ::geom::raster::Rasterize;
 
 use ::cgmath::{Vector2, Vector3, Vector4};
+use ::cgmath::prelude::*;
 
 use ::nearest_kdtree::KdTree;
 use ::nearest_kdtree::distance::squared_euclidean;
@@ -194,9 +195,13 @@ impl SubstanceMapper {
         if padding > 0.0 {
             let image_center = (1.0 / 3.0) * (image_pos0 + image_pos1 + image_pos2);
 
-            image_pos0 = (image_pos0 - image_center) * padding + image_center;
-            image_pos1 = (image_pos1 - image_center) * padding + image_center;
-            image_pos2 = (image_pos2 - image_center) * padding + image_center;
+            let from_center0 = image_pos0 - image_center;
+            let from_center1 = image_pos1 - image_center;
+            let from_center2 = image_pos2 - image_center;
+
+            image_pos0 = image_center + from_center0.normalize_to(from_center0.magnitude() + padding);
+            image_pos1 = image_center + from_center1.normalize_to(from_center1.magnitude() + padding);
+            image_pos2 = image_center + from_center2.normalize_to(from_center2.magnitude() + padding);
 
             /*if image_pos0.x < image_center.x {
                 image_pos0.x -= padding;
