@@ -21,8 +21,8 @@ fn multi_weathering_test() {
 
     let blent_map_output_directory = directory.to_str().unwrap();*/
 
-    let input_path = "test-scenes/buddha-scene-iron-concrete";
-    let model_obj_path = format!("{}/buddha-scene-iron-concrete.obj", input_path);
+    let input_path = "test-scenes/buddha-pedestal";
+    let model_obj_path = format!("{}/buddha-pedestal.obj", input_path);
 
     let mut hit_map_path = directory.clone();
     hit_map_path.push("interacted_surfels");
@@ -37,18 +37,21 @@ fn multi_weathering_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.01)
+                s.min_sample_distance(0.02)
                     .delta_straight(1.0)
-                    .delta_parabolic(0.1) // up to two bounces
+                    .delta_parabolic(0.4) // up to two bounces
                     .delta_flow(0.05) // way more flow events
                     .substances(&vec![0.0, 0.0])
                     // Buddha and bunnies get water from gammatons, but no rust
-                    .deposition_rates(vec![0.2, 0.0])
+                    .deposition_rates(vec![1.0, 0.0])
                     .override_material(
-                        "stone",
+                        "Concrete",
                         |s| {
-                            // Floor gets dissolved rust but no water
-                            s.deposition_rates(vec![0.0, 0.05])
+                            // Floor gets exaggerated dissolved rust but no water
+                            s.deposition_rates(vec![0.0, 1.3])
+                                .delta_straight(1.0)
+                                .delta_parabolic(1.0)
+                                .delta_flow(1.0) // a little flow is ok
                         }
                     )
             }
@@ -56,20 +59,22 @@ fn multi_weathering_test() {
         .add_source(|s| {
             s.p_straight(0.0)
                 .p_straight(0.0)
-                .p_parabolic(0.2)
-                .p_flow(0.8)
-                .interaction_radius(0.06)
-                .parabola_height(0.01)
+                .p_parabolic(0.8)
+                .p_flow(0.2)
+                .interaction_radius(0.1)
+                .parabola_height(0.08)
                 .flow_upward_offset(0.002)
                 .flow_downward_pull(0.01)
                 .substances(&vec![1.0, 0.0]) // gammatons carry water and no rust
-                .pickup_rates(vec![0.0, 0.2]) // Gammatons pick up all the rust on contact
+                .pickup_rates(vec![0.0, 1.0]) // Gammatons pick up all the rust on contact
                 .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
-                .emission_count(200000)
+                .emission_count(100000)
         })
         // Water should slowly lead to rust accumulation
-        // rust = rust + 0.15 * water
-        .add_material_surfel_rule("bronze", 1, 0, 0.15)
+        // rust = rust + 0.25 * water
+        .add_material_surfel_rule("iron_buddha", 1, 0, 0.3)
+        .add_material_surfel_rule("iron_bun_big", 1, 0, 0.3)
+        .add_material_surfel_rule("iron_bun_small", 1, 0, 0.3)
         // And water also evaporates
         // water = water - 0.5 * water
         .add_global_surfel_rule(0, 0, -0.5)
@@ -81,7 +86,7 @@ fn multi_weathering_test() {
         .add_effect_density_map()
         //.add_effect_ramp()
         .add_effect_blend(
-            vec![String::from("bronze"), String::from("stone"), String::from("iron")],
+            vec![String::from("Concrete"), String::from("iron_buddha"), String::from("iron_bun_big"), String::from("iron_bun_small")],
             "test-scenes/buddha-scene-iron-concrete/",
             "test-scenes/buddha-scene-iron-concrete/RustPlain018_COL_VAR1_1K.jpg"
         )

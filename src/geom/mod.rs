@@ -10,7 +10,4 @@ pub mod spatial;
 pub mod surf;
 pub mod tri;
 pub mod vtx;
-
-mod triangle_bins;
-
-pub use self::triangle_bins::TriangleBins;
+pub mod sampling;

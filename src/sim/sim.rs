@@ -5,7 +5,7 @@
 use std::fs;
 use std::time::Instant;
 use std::path::PathBuf;
-use std::f32::EPSILON;
+use std::f32::{INFINITY};
 
 use ::geom::surf::{Surface, Surfel, SurfaceBuilder};
 use ::geom::scene::{Scene, Triangle};
@@ -113,33 +113,30 @@ impl Simulation {
         let mut rng = rand::thread_rng();
         let random : f32 = rng.gen();
 
-        if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+        let &mut Ton { p_straight, p_parabolic, p_flow, .. } = ton;
+
+        if random < (p_straight + p_parabolic + p_flow) {
             // If not settled yet, pick up some material
 
             // REVIEW, should each interacting surfel deteriorate motion probabilities? Currently just one does
             Self::deteriorate_motion_probabilities(ton, &surface.samples[interacting_surfel_idxs[0]]);
-
             Self::transport_material_to_ton(surface, &interacting_surfel_idxs, ton);
         }
 
-        if random < ton.p_straight {
-            let random_on_unit_sphere = Vector3::new(
-                rng.next_f32(),
-                rng.next_f32(),
-                rng.next_f32()
-            ).normalize();
+        if random < p_straight {
             let normal = surface.samples[interacting_surfel_idxs[0]].normal;
-            let outgoing_direction = (random_on_unit_sphere + normal).normalize();
+            let outgoing_direction = hit_tri.sample_diffuse();
 
             // TODO instead of taking the normal, sample on upper hemisphere, but I need tangents for this
             //let reflection_direction = normal;
             Self::trace_straight(surface, octree, ton, intersection_point + 0.000001 * normal, outgoing_direction);
-        } else if random < (ton.p_straight + ton.p_parabolic) {
+        } else if random < (p_straight + p_parabolic) {
             Self::trace_parabolic(surface, octree, ton, hit_tri, intersection_point);
-        } else if random < (ton.p_straight + ton.p_parabolic + ton.p_flow) {
+        } else if random < (p_straight + p_parabolic + p_flow) {
             Self::trace_flow(surface, octree, ton, hit_tri, intersection_point, incoming_direction);
         } else {
             Self::transport_material_to_surf(ton, surface, &interacting_surfel_idxs);
+            return;
         }
     }
 
@@ -185,17 +182,13 @@ impl Simulation {
         };
         let new_direction = (flow_direction - downward_pull_mag * normal).normalize();
 
+        // TODO somehow handle misses, we dont wanna go 10 in X direction
+        // maybe if misses, rescue by making it parabolic
+
         Self::trace_straight(surface, octree, ton, new_origin, new_direction);
     }
 
     fn trace_parabolic(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton,  hit_tri: &Triangle, intersection_point: Vector3<f32>) {
-        let mut rng = rand::thread_rng();
-        let random_on_unit_sphere = Vector3::new(
-                rng.next_f32(),
-                rng.next_f32(),
-                rng.next_f32()
-            ).normalize();
-
         // Maximum height of a bounce assuming it is straight up and gravity pointing straight down
         let upward_parabola_height = ton.parabola_height;
         let gravity_mag = 9.81_f32;
@@ -206,9 +199,10 @@ impl Simulation {
 
         // REVIEW regarding surface as diffuse, could also reflect on the normal
         let normal = hit_tri.interpolate_at(intersection_point, |v| v.normal);
-        let mut velocity = takeoff_velocity_mag * (random_on_unit_sphere + normal).normalize();
+        let mut velocity = takeoff_velocity_mag * hit_tri.sample_diffuse();
         let mut position = intersection_point + normal * 0.0000001;
-        let scene_bounds = octree.bounds();
+        let mut scene_bounds = octree.bounds();
+        scene_bounds.max.y = INFINITY; // ignore if out of bounds in positive y direction since gravity will eventually pull it downward
 
         while scene_bounds.is_point_inside(position) {
             velocity += gravity_acceleration * timestep;
@@ -269,7 +263,7 @@ impl Simulation {
                 let pickup_rate = *pickup_rate / (interacting_surfel_idxs.len() as f32);
                 let transport_amount = pickup_rate * **surfel_material;
 
-                **surfel_material -= transport_amount;
+                **surfel_material = (**surfel_material - transport_amount).max(0.0);
                 **ton_material = (**ton_material + transport_amount).min(1.0);
             }
         }

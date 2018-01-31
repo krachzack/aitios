@@ -32,28 +32,28 @@ fn bounce_test() {
             |s| {
                 s.min_sample_distance(0.02)
                     .delta_straight(1.0)
-                    .delta_parabolic(0.5) // up to two bounces
+                    .delta_parabolic(0.2) // up to five bounces
                     .delta_flow(0.3) // way more flow events
                     .substances(&vec![0.0])
-                    .deposition_rates(vec![0.05])
+                    .deposition_rates(vec![1.0])
             }
         )
-        .add_source(|s| {
+        .add_environment_source(|s| {
             s.p_straight(0.0)
                 .p_straight(0.0)
                 .p_parabolic(1.0)
                 .p_flow(0.0)
-                .parabola_height(0.05)
-                .interaction_radius(0.04)
-                .substances(&vec![1.0]) // gammatons carry water
+                .parabola_height(0.1)
+                .interaction_radius(0.1)
+                .substances(&vec![1.0]) // gammatons carry rust
                 .pickup_rates(vec![1.0]) // Gammatons pick up all the rust on contact
-                .mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
-                .emission_count(100000)
+                //.mesh_shaped("test-scenes/buddha-scene-ton-source-mesh/sky-disk.obj")
+                .emission_count(10000)
         })
         .substance_map_size(
             0,
-            4096,
-            4096
+            1024,
+            1024
         )
         .add_effect_density_map()
         .add_effect_blend(

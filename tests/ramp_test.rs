@@ -40,7 +40,7 @@ fn ramp_test() {
                 s.min_sample_distance(0.01)
                     .delta_straight(1.0)
                     .delta_parabolic(0.4) // up to two bounces
-                    .delta_flow(0.05) // way more flow events
+                    .delta_flow(0.1) // way more flow events
                     .substances(&vec![0.0, 0.0])
                     // Buddha and bunnies get water from gammatons, but no rust
                     .deposition_rates(vec![0.1, 0.0])
@@ -56,10 +56,10 @@ fn ramp_test() {
         .add_source(|s| {
             s.p_straight(0.0)
                 .p_straight(0.0)
-                .p_parabolic(0.8)
-                .p_flow(0.2)
+                .p_parabolic(0.2)
+                .p_flow(0.8)
                 .interaction_radius(0.06)
-                .parabola_height(0.01)
+                .parabola_height(0.1)
                 .flow_upward_offset(0.002)
                 .flow_downward_pull(0.01)
                 .substances(&vec![1.0, 0.0]) // gammatons carry water and no rust

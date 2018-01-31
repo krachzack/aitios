@@ -1,7 +1,7 @@
 
 use super::vtx::SparseVertex;
 
-use ::geom::TriangleBins;
+use ::geom::sampling::TriangleBins;
 use ::geom::tri::Triangle;
 use ::geom::vtx::Position;
 
@@ -11,6 +11,7 @@ use ::cgmath::Vector3;
 
 use std::f32::consts::PI;
 
+// TODO move to geom::sampling
 pub struct Darts {
     active_triangles: TriangleBins<SparseVertex>,
     min_point_distance: f64,

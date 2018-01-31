@@ -9,6 +9,7 @@ use super::vtx::{Position, Normal};
 use super::spatial::Spatial;
 use super::aabb::Aabb;
 use super::intersect::IntersectRay;
+use super::sampling::uniform_on_unit_z_hemisphere;
 
 use std::ops::{Mul, Add};
 use std::iter::Sum;
@@ -251,6 +252,15 @@ impl<V> Triangle<V>
     pub fn world_to_tangent_matrix(&self) -> Matrix3<f32> {
         let (tangent, binormal, normal) = self.tangent_space();
         Matrix3::from_cols(tangent, binormal, normal).transpose()
+    }
+
+    /// Uniformly samples a vector over the upper hemisphere of the triangle
+    pub fn sample_diffuse(&self) -> Vector3<f32> {
+        let world_to_tangent = self.world_to_tangent_matrix();
+        let tangent_to_world = world_to_tangent.invert()
+            .expect("Expected tangent space matrix to be invertible");
+
+        tangent_to_world * uniform_on_unit_z_hemisphere()
     }
 
     /// Transforms the given direction vector into tangent space, setting the height component to zero and then

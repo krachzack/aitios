@@ -1,9 +1,9 @@
 
 use ::cgmath::Vector3;
 use ::cgmath::InnerSpace;
-use ::rand;
 
-use ::geom::TriangleBins;
+use ::geom::sampling::TriangleBins;
+use ::geom::sampling::{uniform_on_unit_z_hemisphere, uniform_on_unit_sphere};
 use ::geom::scene::{Scene, Vertex};
 
 use std::f32::EPSILON;
@@ -113,14 +113,10 @@ impl TonSource {
                     &Shape::Point { position } => (
                         position.clone(),
                         // Random position on the unit sphere
-                        Vector3::new(
-                            rand::random::<f32>() - 0.5,
-                            rand::random::<f32>() - 0.5,
-                            rand::random::<f32>() - 0.5
-                        ).normalize()
+                        uniform_on_unit_sphere()
                     ),
                     &Shape::Hemisphere { center, radius } => {
-                        let unit = sample_unit_hemisphere();
+                        let unit = uniform_on_unit_z_hemisphere();
                         let origin = center + radius * unit;
                         // REVIEW wait, should they really all be flying towards the center?
                         let direction = -unit;
@@ -158,16 +154,6 @@ impl TonSource {
     pub fn emission_count(&self) -> u32 {
         self.emission_count
     }
-}
-
-fn sample_unit_hemisphere() -> Vector3<f32> {
-    // REVIEW this is certainly not uniform
-
-    let x = rand::random::<f32>() - 0.5;
-    let y = rand::random::<f32>() * 0.5;
-    let z = rand::random::<f32>() - 0.5;
-
-    Vector3::new(x, y, z).normalize()
 }
 
 impl TonSourceBuilder {

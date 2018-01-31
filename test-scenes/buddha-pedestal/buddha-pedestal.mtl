@@ -1,0 +1,49 @@
+# Blender MTL File: 'buddha-scene-for-render.blend'
+# Material Count: 4
+
+newmtl Concrete
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+map_Kd Concrete03_COL_VAR1_1K.jpg
+illum 2
+
+newmtl iron_buddha
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+map_Kd streakedmetal-albedo.png
+map_Ks streakedmetal-metalness.psd
+illum 2
+
+newmtl iron_bun_big
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+map_Kd streakedmetal-albedo.png
+map_Ks streakedmetal-metalness.psd
+illum 2
+
+newmtl iron_bun_small
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+map_Kd streakedmetal-albedo.png
+map_Ks streakedmetal-metalness.psd
+illum 2
