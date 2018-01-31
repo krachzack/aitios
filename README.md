@@ -8,7 +8,7 @@ examples on how to set up a simulation.
 
 You can run all tests with:
 
-    cargo test --test --release
+    cargo test --release
 
 Or only, e.g. multi_weathering_test with:
 
