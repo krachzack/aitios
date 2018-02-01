@@ -13,14 +13,6 @@ fn multi_weathering_test() {
     let obj_file = "multi-weathered.obj";
     let mtl_file = "multi-weathered.mtl";
 
-    /*let mut density_map_output_directory = directory.clone();
-    density_map_output_directory.push("substance-density-maps");
-    create_dir(&density_map_output_directory).unwrap();
-
-    let density_map_output_directory = density_map_output_directory.to_str().unwrap();
-
-    let blent_map_output_directory = directory.to_str().unwrap();*/
-
     let input_path = "test-scenes/buddha-pedestal";
     let model_obj_path = format!("{}/buddha-pedestal.obj", input_path);
 
@@ -51,7 +43,7 @@ fn multi_weathering_test() {
                             s.deposition_rates(vec![0.0, 1.3])
                                 .delta_straight(1.0)
                                 .delta_parabolic(1.0)
-                                .delta_flow(1.0) // a little flow is ok
+                                .delta_flow(1.0)
                         }
                     )
             }
