@@ -29,7 +29,8 @@ fn multi_weathering_test() {
         .scene(
             &model_obj_path,
             |s| {
-                s.min_sample_distance(0.02)
+                s//.min_sample_distance(0.02)
+                    .sample_density(1000.0)
                     .delta_straight(1.0)
                     .delta_parabolic(0.4) // up to two bounces
                     .delta_flow(0.05) // way more flow events

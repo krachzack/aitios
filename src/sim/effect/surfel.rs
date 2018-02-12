@@ -10,11 +10,11 @@ use std::iter::IntoIterator;
 /// Describes an aging effect concerning surface samples in isolation that can be described as a
 /// linear equation such as:
 ///
-///     substance1 = max(0.0, substance1 + rate * substance2)
+/// substance1 = max(0.0, substance1 + rate * substance2)
 ///
 /// For example, the accumulation of rust due to contact with water can be modelled as:
 ///
-///     rust = rust + 0.2 * water
+/// rust = rust + 0.2 * water
 ///
 /// Assuming water is substance 0 and rust is substance 1, such an effect can be described in code
 /// as `SurfelRule::new(0, 1, 0.2)`.

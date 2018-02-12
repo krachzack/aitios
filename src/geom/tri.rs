@@ -284,6 +284,14 @@ impl<V> Triangle<V>
             scaled_projected.normalize()
         }
     }
+
+    pub fn sample_position(&self) -> Vector3<f32> {
+        let positions = self.vertices.iter().map(|v| v.position());
+        random_bary().iter()
+            .zip(positions)
+            .map(|(&bary, vtx)| bary * vtx)
+            .fold(Vector3::zero(), |acc, vtx| acc + vtx)
+    }
 }
 
 impl<V> Triangle<V>
@@ -300,14 +308,6 @@ impl<V> Triangle<V>
 impl<V> Triangle<V>
     where V : Position + Clone + Mul<f32, Output = V> + Add<V, Output = V>
 {
-    pub fn sample_position(&self) -> Vector3<f32> {
-        let positions = self.vertices.iter().map(|v| v.position());
-        random_bary().iter()
-            .zip(positions)
-            .map(|(&bary, vtx)| bary * vtx)
-            .fold(Vector3::zero(), |acc, vtx| acc + vtx)
-    }
-
     /// Interpolates a vertex on a random position on the triangle
     pub fn sample_vertex(&self) -> V {
         self.interpolate_vertex_at_bary(random_bary())

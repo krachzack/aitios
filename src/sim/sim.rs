@@ -102,6 +102,10 @@ impl Simulation {
         self.dump_hit_map();
     }
 
+    pub fn surface(&self) -> &Surface {
+        &self.surface
+    }
+
     fn interact(surface: &mut Surface, octree: &Octree<Triangle>, ton: &mut Ton, hit_tri: &Triangle, intersection_point: Vector3<f32>, incoming_direction: Vector3<f32>) {
         let interacting_surfel_idxs = surface.find_within_sphere_indexes(intersection_point, ton.interaction_radius);
 

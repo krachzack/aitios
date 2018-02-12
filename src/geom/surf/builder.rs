@@ -3,7 +3,8 @@ use super::*;
 use ::cgmath::{Vector2, Vector3};
 use ::cgmath::prelude::*;
 use ::nearest_kdtree::KdTree;
-use super::sampling::throw_darts;
+use ::geom::sampling::{throw_darts, sample_with_density};
+use ::geom::scene::Triangle;
 
 use std::collections::HashMap;
 
@@ -18,8 +19,19 @@ pub struct SurfaceBuilder {
     /// Holds the initial amount of substances as numbers in the interval 0..1
     substances: Vec<f32>,
     deposition_rates: Vec<f32>,
-    min_sample_distance: f32,
+    sampling: SurfelSampling,
     material_overrides: HashMap<String, Box<SurfaceBuilder>>
+}
+
+#[derive(Copy, Clone)]
+enum SurfelSampling {
+    /// Examines each triangle and randomly samples an amount of points proporitional to the given
+    /// point density per square unit in world space. Clumps together on smaller scale, but crazy fast.alloc
+    /// Use `MinimumDistance` for better quality.
+    PerSqrUnit(f32),
+    /// Uses dart throwing algorithm to generate a poisson disk set with givne minimum distance.
+    /// Slower than `PerSqrUnit`, but surfels are more evenly spaced.
+    MinimumDistance(f32)
 }
 
 impl SurfaceBuilder {
@@ -31,7 +43,7 @@ impl SurfaceBuilder {
             delta_flow: 0.0,
             substances: Vec::new(),
             deposition_rates: Vec::new(),
-            min_sample_distance: 0.1,
+            sampling: SurfelSampling::MinimumDistance(0.1),
             material_overrides: HashMap::new()
         }
     }
@@ -88,7 +100,12 @@ impl SurfaceBuilder {
     }
 
     pub fn min_sample_distance(mut self, min_sample_distance: f32) -> SurfaceBuilder {
-        self.min_sample_distance = min_sample_distance;
+        self.sampling = SurfelSampling::MinimumDistance(min_sample_distance);
+        self
+    }
+
+    pub fn sample_density(mut self, surfels_per_sqr_unit: f32) -> SurfaceBuilder {
+        self.sampling = SurfelSampling::PerSqrUnit(surfels_per_sqr_unit);
         self
     }
 
@@ -147,46 +164,47 @@ impl SurfaceBuilder {
                     .collect()
             };
 
+            let make_surfel = |t : &Triangle, position| {
+                let material_builder = builder_per_material[t.vertices[0].material_idx];
+
+                let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
+
+                // TODO maybe add warning if UVs degenerate
+                if texcoords.x < 0.0 {
+                    texcoords.x = 0.0;
+                } else if texcoords.x > 1.0 {
+                    texcoords.x = 1.0;
+                }
+
+                if texcoords.y < 0.0 {
+                    texcoords.y = 0.0;
+                } else if texcoords.y > 1.0 {
+                    texcoords.y = 1.0;
+                }
+
+                // TODO this would be a good place to read initital surface properties from a texture
+
+                let normal = t.interpolate_at(position, |v| v.normal);
+                let normal = normal.normalize(); // normalize since interpolation can cause distortions
+
+                Surfel {
+                    position,
+                    normal,
+                    texcoords,
+                    entity_idx: t.vertices[0].entity_idx,
+                    delta_straight: material_builder.delta_straight,
+                    delta_parabolic: material_builder.delta_parabolic,
+                    delta_flow: material_builder.delta_flow,
+                    substances: material_builder.substances.clone(),
+                    deposition_rates: material_builder.deposition_rates.clone()
+                }
+            };
+
             self.samples.extend(
-                throw_darts(
-                    scene.triangles(),
-                    self.min_sample_distance,
-                    |t, position| {
-                        let material_builder = builder_per_material[t.vertices[0].material_idx];
-
-                        let mut texcoords = t.interpolate_at(position, |v| v.texcoords);
-
-                        // TODO maybe add warning if UVs degenerate
-                        if texcoords.x < 0.0 {
-                            texcoords.x = 0.0;
-                        } else if texcoords.x > 1.0 {
-                            texcoords.x = 1.0;
-                        }
-
-                        if texcoords.y < 0.0 {
-                            texcoords.y = 0.0;
-                        } else if texcoords.y > 1.0 {
-                            texcoords.y = 1.0;
-                        }
-
-                        // TODO this would be a good place to read initital surface properties from a texture
-
-                        let normal = t.interpolate_at(position, |v| v.normal);
-                        let normal = normal.normalize(); // normalize since interpolation can cause distortions
-
-                        Surfel {
-                            position,
-                            normal,
-                            texcoords,
-                            entity_idx: t.vertices[0].entity_idx,
-                            delta_straight: material_builder.delta_straight,
-                            delta_parabolic: material_builder.delta_parabolic,
-                            delta_flow: material_builder.delta_flow,
-                            substances: material_builder.substances.clone(),
-                            deposition_rates: material_builder.deposition_rates.clone()
-                        }
-                    }
-                )
+                match &boxed_self.sampling {
+                    &SurfelSampling::MinimumDistance(dist) => throw_darts(scene.triangles(), dist, make_surfel),
+                    &SurfelSampling::PerSqrUnit(per_sqr_unit) => sample_with_density(scene.triangles(), per_sqr_unit, make_surfel)
+                }
             );
         }
 

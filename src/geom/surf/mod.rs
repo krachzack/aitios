@@ -1,5 +1,3 @@
-
-mod sampling;
 mod builder;
 
 pub use self::builder::SurfaceBuilder;

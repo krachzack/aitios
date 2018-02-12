@@ -118,7 +118,7 @@ impl SimulationBuilder {
         self.scene = scene;
         self.surface = Some(surface);
 
-        //self.dump_surfels();
+        self.dump_surfels();
 
         self
     }
